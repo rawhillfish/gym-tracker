@@ -79,14 +79,52 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 
 ## Deployment
 
-The application can be deployed to various platforms:
+### Netlify Deployment (Recommended)
 
-- GitHub Pages
+This project is configured for easy deployment on Netlify.
+
+#### Option 1: Deploy via Netlify UI
+
+1. Push your code to GitHub
+2. Go to [Netlify](https://app.netlify.com/) and sign up/login
+3. Click "New site from Git"
+4. Select GitHub and authorize Netlify
+5. Select your repository
+6. Configure build settings:
+   - Build command: `npm run build`
+   - Publish directory: `build`
+7. Click "Deploy site"
+
+#### Option 2: Deploy via Netlify CLI
+
+1. Install Netlify CLI (already added to project dependencies)
+2. Login to Netlify:
+   ```
+   npx netlify login
+   ```
+3. Initialize your site:
+   ```
+   npx netlify init
+   ```
+4. Deploy your site:
+   ```
+   npx netlify deploy --prod
+   ```
+
+### Backend Deployment
+
+For the backend to work with your deployed frontend:
+
+1. Deploy your Express server to a service like Render, Railway, or Heroku
+2. Set up MongoDB Atlas for your database
+3. Update your frontend API endpoints to point to your deployed backend URL
+
+### Other Deployment Options
+
+The application can also be deployed to:
 - Vercel
-- Netlify
+- GitHub Pages
 - Render
-
-See the [deployment section](#deployment) for more details.
 
 ## License
 
