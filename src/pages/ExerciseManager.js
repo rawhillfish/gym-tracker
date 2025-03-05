@@ -61,9 +61,23 @@ const ExerciseManager = ({ isSubTab = false }) => {
     setLoading(true);
     try {
       const response = await apiService.getExercises();
-      setExercises(response.data);
+      console.log('Exercises API response:', response);
+      
+      // Check if response.data exists and is an array
+      if (response && response.data && Array.isArray(response.data)) {
+        setExercises(response.data);
+      } else {
+        console.error('Invalid exercises data format:', response.data);
+        setExercises([]); // Set to empty array as fallback
+        setSnackbar({
+          open: true,
+          message: 'Received invalid data format from server',
+          severity: 'error'
+        });
+      }
     } catch (error) {
       console.error('Error fetching exercises:', error);
+      setExercises([]); // Set to empty array as fallback
       setSnackbar({
         open: true,
         message: 'Failed to load exercises',
