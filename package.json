@@ -2,7 +2,7 @@
   "name": "gym-tracker",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://YOUR_USERNAME.github.io/gym-tracker",
+  "homepage": "https://rawhillfish.github.io/gym-tracker",
   "dependencies": {
     "@emotion/react": "^11.10.5",
     "@emotion/styled": "^11.10.5",
