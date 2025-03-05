@@ -236,6 +236,9 @@ const ActiveWorkout = () => {
     const updatedWorkouts = [...activeWorkouts];
     updatedWorkouts[workoutIndex].exercises.splice(exerciseIndex, 1);
     setActiveWorkouts(updatedWorkouts);
+    
+    // We don't need to save to localStorage here as the useEffect will handle it
+    // This is different from the set-level functions where we need immediate saving
   };
 
   // Function to add a new exercise to a workout
@@ -292,9 +295,14 @@ const ActiveWorkout = () => {
     const handleInputBlur = (setIndex, field) => {
       const value = localInputValues[setIndex][field];
       const updatedWorkouts = [...activeWorkouts];
+      // Store the value as is without converting to Number to prevent empty strings
+      // when value is 0 or when the field is cleared
       updatedWorkouts[workoutIndex].exercises[exerciseIndex].sets[setIndex][field] = 
-        Number(value) || '';
+        value === '' ? '' : Number(value);
       setActiveWorkouts(updatedWorkouts);
+      
+      // Save to localStorage immediately to prevent data loss
+      localStorage.setItem('activeWorkouts', JSON.stringify(updatedWorkouts));
     };
     
     // For completed status, update immediately
@@ -302,13 +310,16 @@ const ActiveWorkout = () => {
       const updatedWorkouts = [...activeWorkouts];
       updatedWorkouts[workoutIndex].exercises[exerciseIndex].sets[setIndex].completed = value;
       setActiveWorkouts(updatedWorkouts);
+      
+      // Save to localStorage immediately
+      localStorage.setItem('activeWorkouts', JSON.stringify(updatedWorkouts));
     };
 
     const addSet = () => {
       // Get values from the last set
       const lastSet = exercise.sets[exercise.sets.length - 1];
       const newSet = {
-        weight: lastSet.weight,
+        weight: lastSet.weight, // Preserve the weight exactly as it is
         reps: lastSet.reps,
         completed: false
       };
@@ -318,10 +329,13 @@ const ActiveWorkout = () => {
       updatedWorkouts[workoutIndex].exercises[exerciseIndex].sets.push(newSet);
       setActiveWorkouts(updatedWorkouts);
       
-      // Update local state
+      // Save to localStorage immediately
+      localStorage.setItem('activeWorkouts', JSON.stringify(updatedWorkouts));
+      
+      // Update local state - ensure we're using the exact same values
       setLocalInputValues([...localInputValues, {
-        weight: lastSet.weight,
-        reps: lastSet.reps
+        weight: newSet.weight,
+        reps: newSet.reps
       }]);
     };
 
@@ -332,6 +346,9 @@ const ActiveWorkout = () => {
       const updatedWorkouts = [...activeWorkouts];
       updatedWorkouts[workoutIndex].exercises[exerciseIndex].sets.splice(setIndex, 1);
       setActiveWorkouts(updatedWorkouts);
+      
+      // Save to localStorage immediately
+      localStorage.setItem('activeWorkouts', JSON.stringify(updatedWorkouts));
       
       // Update local state
       const newLocalValues = [...localInputValues];
