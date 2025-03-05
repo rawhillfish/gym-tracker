@@ -2,6 +2,8 @@
 
 A React application for tracking gym workouts, managing exercises, and viewing workout history.
 
+**Live Demo:** [https://YOUR_USERNAME.github.io/gym-tracker](https://YOUR_USERNAME.github.io/gym-tracker)
+
 ## Features
 
 - Track multiple workouts simultaneously for different users
