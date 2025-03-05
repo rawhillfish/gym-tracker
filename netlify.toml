@@ -9,8 +9,43 @@
   package = "@netlify/plugin-functions-install-core"
 
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  from = "/exercises/*"
+  to = "/.netlify/functions/api/exercises/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/workout-templates/*"
+  to = "/.netlify/functions/api/workout-templates/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/completed-workouts/*"
+  to = "/.netlify/functions/api/completed-workouts/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/users/*"
+  to = "/.netlify/functions/api/users/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/exercises"
+  to = "/.netlify/functions/api/exercises"
+  status = 200
+
+[[redirects]]
+  from = "/workout-templates"
+  to = "/.netlify/functions/api/workout-templates"
+  status = 200
+
+[[redirects]]
+  from = "/completed-workouts"
+  to = "/.netlify/functions/api/completed-workouts"
+  status = 200
+
+[[redirects]]
+  from = "/users"
+  to = "/.netlify/functions/api/users"
   status = 200
 
 [[redirects]]

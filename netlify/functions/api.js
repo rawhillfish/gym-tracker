@@ -10,11 +10,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Simple proxy endpoint
-app.all('/api/*', async (req, res) => {
+// Simple proxy endpoint - handle all routes
+app.all('*', async (req, res) => {
   const apiUrl = process.env.BACKEND_API_URL || 'https://gym-tracker-api.onrender.com';
-  const path = req.path.replace('/api', '');
-  const fullUrl = apiUrl + path;
+  // Add /api prefix to the path for the backend
+  const path = req.path;
+  const fullUrl = apiUrl + '/api' + path;
   
   try {
     // Prepare headers (excluding host which can cause issues)
