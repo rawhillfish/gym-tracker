@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import apiService from '../services/api';
+import axios from 'axios';
 import {
   Container,
   Typography,
@@ -36,17 +38,17 @@ const WorkoutBuilder = ({ isSubTab = false }) => {
 
   useEffect(() => {
     // Fetch exercises from MongoDB
-    fetch('http://localhost:5000/api/exercises')
-      .then(res => res.json())
-      .then(data => {
-        setExercises(data);
+    apiService.getExercises()
+      .then(response => {
+        setExercises(response.data);
       })
       .catch(err => console.error('Error fetching exercises:', err));
       
     // Fetch workout templates from MongoDB
-    fetch('http://localhost:5000/api/workout-templates')
-      .then(res => res.json())
-      .then(data => {
+    apiService.getWorkoutTemplates()
+      .then(response => {
+        const data = response.data;
+
         if (Array.isArray(data) && data.length > 0) {
           setWorkoutTemplates(data);
         } else {
@@ -59,15 +61,10 @@ const WorkoutBuilder = ({ isSubTab = false }) => {
                 setWorkoutTemplates(templates);
                 
                 // Optionally migrate localStorage templates to MongoDB
-                fetch('http://localhost:5000/api/workout-templates/import', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ templates })
-                })
-                  .then(res => res.json())
-                  .then(data => {
+                // Note: This endpoint needs to be added to the API service
+                axios.post('/workout-templates/import', { templates })
+                  .then(response => {
+                    const data = response.data;
                     console.log('Templates migrated to MongoDB:', data);
                     if (Array.isArray(data)) {
                       setWorkoutTemplates(data);

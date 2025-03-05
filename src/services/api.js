@@ -56,6 +56,7 @@ const apiService = {
   createWorkoutTemplate: (data) => api.post('/workout-templates', data),
   updateWorkoutTemplate: (id, data) => api.put(`/workout-templates/${id}`, data),
   deleteWorkoutTemplate: (id) => api.delete(`/workout-templates/${id}`),
+  importWorkoutTemplates: (templates) => api.post('/workout-templates/import', { templates }),
 
   // Completed Workouts
   getCompletedWorkouts: () => api.get('/completed-workouts'),

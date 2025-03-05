@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiService from '../services/api';
 import {
   Container,
   Typography,
@@ -59,9 +60,8 @@ const ExerciseManager = ({ isSubTab = false }) => {
   const fetchExercises = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/exercises');
-      const data = await response.json();
-      setExercises(data);
+      const response = await apiService.getExercises();
+      setExercises(response.data);
     } catch (error) {
       console.error('Error fetching exercises:', error);
       setSnackbar({
@@ -104,22 +104,12 @@ const ExerciseManager = ({ isSubTab = false }) => {
 
   const handleSaveExercise = async () => {
     try {
-      const url = editMode
-        ? `http://localhost:5000/api/exercises/${currentExercise._id}`
-        : 'http://localhost:5000/api/exercises';
+      let response;
       
-      const method = editMode ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(currentExercise)
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to save exercise');
+      if (editMode) {
+        response = await apiService.updateExercise(currentExercise._id, currentExercise);
+      } else {
+        response = await apiService.createExercise(currentExercise);
       }
       
       fetchExercises();
@@ -145,13 +135,7 @@ const ExerciseManager = ({ isSubTab = false }) => {
     }
     
     try {
-      const response = await fetch(`http://localhost:5000/api/exercises/${id}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete exercise');
-      }
+      await apiService.deleteExercise(id);
       
       fetchExercises();
       setSnackbar({
