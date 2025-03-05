@@ -17,11 +17,14 @@ import {
   DialogContent,
   DialogActions,
   Checkbox,
-  ListItemIcon
+  ListItemIcon,
+  Tooltip
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 
 const WorkoutBuilder = ({ isSubTab = false }) => {
   const [workoutTemplates, setWorkoutTemplates] = useState([]);
@@ -260,6 +263,37 @@ const WorkoutBuilder = ({ isSubTab = false }) => {
     });
     setSelectedExercises(newSelectedExercises);
   };
+  
+  // Function to move an exercise up in the list
+  const moveExerciseUp = (index) => {
+    if (index === 0) return; // Already at the top
+    
+    const newExercises = [...selectedExercises];
+    const temp = newExercises[index];
+    newExercises[index] = newExercises[index - 1];
+    newExercises[index - 1] = temp;
+    
+    setSelectedExercises(newExercises);
+  };
+  
+  // Function to move an exercise down in the list
+  const moveExerciseDown = (index) => {
+    if (index === selectedExercises.length - 1) return; // Already at the bottom
+    
+    const newExercises = [...selectedExercises];
+    const temp = newExercises[index];
+    newExercises[index] = newExercises[index + 1];
+    newExercises[index + 1] = temp;
+    
+    setSelectedExercises(newExercises);
+  };
+  
+  // Function to remove an exercise from the list
+  const removeExercise = (index) => {
+    const newExercises = [...selectedExercises];
+    newExercises.splice(index, 1);
+    setSelectedExercises(newExercises);
+  };
 
   return (
     <Container maxWidth="md" disableGutters={isSubTab}>
@@ -296,7 +330,31 @@ const WorkoutBuilder = ({ isSubTab = false }) => {
           </Button>
           <List>
             {selectedExercises.map((exercise) => (
-              <ListItem key={exercise._id}>
+              <ListItem key={exercise._id} sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', mr: 1 }}>
+                  <Tooltip title="Move Up">
+                    <span>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => moveExerciseUp(selectedExercises.indexOf(exercise))}
+                        disabled={selectedExercises.indexOf(exercise) === 0}
+                      >
+                        <ArrowUpwardIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Move Down">
+                    <span>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => moveExerciseDown(selectedExercises.indexOf(exercise))}
+                        disabled={selectedExercises.indexOf(exercise) === selectedExercises.length - 1}
+                      >
+                        <ArrowDownwardIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
                 <ListItemText 
                   primary={exercise.name} 
                   secondary={
@@ -322,6 +380,17 @@ const WorkoutBuilder = ({ isSubTab = false }) => {
                     </Box>
                   }
                 />
+                <Tooltip title="Remove Exercise">
+                  <IconButton 
+                    edge="end" 
+                    aria-label="delete" 
+                    onClick={() => removeExercise(selectedExercises.indexOf(exercise))}
+                    color="error"
+                    size="small"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Tooltip>
               </ListItem>
             ))}
           </List>

@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import TimerIcon from '@mui/icons-material/Timer';
+import WorkoutTimer from '../components/WorkoutTimer';
 
 const motivationalMessages = [
   "💪 Amazing work! You're getting stronger every day!",
@@ -135,7 +136,6 @@ const ActiveWorkout = () => {
   const [selectedExercise, setSelectedExercise] = useState('');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [timerTick, setTimerTick] = useState(0);
   const [loading, setLoading] = useState(false);
   const [previousWorkouts, setPreviousWorkouts] = useState([]);
 
@@ -200,14 +200,7 @@ const ActiveWorkout = () => {
       .catch(err => console.error('Error fetching exercises:', err));
   }, []);
 
-  // Update timer every second
-  useEffect(() => {
-    const timerInterval = setInterval(() => {
-      setTimerTick(prev => prev + 1);
-    }, 1000);
-    
-    return () => clearInterval(timerInterval);
-  }, []);
+  // Timer is now handled by the WorkoutTimer component in a separate component
 
   // Save active workouts to localStorage whenever they change
   useEffect(() => {
@@ -1232,13 +1225,9 @@ const ActiveWorkout = () => {
                   </Typography>
                 </Box>
                 {/* Display workout duration */}
-                <Chip
-                  icon={<TimerIcon />}
-                  label={formatDuration(workout.startTime)}
-                  color="primary"
-                  variant="outlined"
-                  sx={{ fontWeight: 'medium', alignSelf: 'flex-start' }}
-                  key={`timer-${workoutIndex}-${timerTick}`}
+                <WorkoutTimer 
+                  startTime={workout.startTime} 
+                  sx={{ alignSelf: 'flex-start' }}
                 />
               </Box>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>

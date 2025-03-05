@@ -1,7 +1,6 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, Divider } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import Timer from './Timer';
 
 const Navbar = () => {
   return (
@@ -20,8 +19,6 @@ const Navbar = () => {
           <Button color="inherit" component={RouterLink} to="/management">
             Management
           </Button>
-          <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.12)' }} />
-          <Timer />
         </Box>
       </Toolbar>
     </AppBar>
