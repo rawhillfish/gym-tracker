@@ -62,6 +62,8 @@ const apiService = {
   getCompletedWorkouts: () => api.get('/completed-workouts'),
   createCompletedWorkout: (data) => api.post('/completed-workouts', data),
   getCompletedWorkoutById: (id) => api.get(`/completed-workouts/${id}`),
+  updateCompletedWorkout: (id, data) => api.put(`/completed-workouts/${id}`, data),
+  deleteCompletedWorkout: (id) => api.delete(`/completed-workouts/${id}`),
 
   // Users
   getUsers: () => api.get('/users'),

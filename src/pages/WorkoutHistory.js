@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { apiService } from '../services';
+import apiService from '../services/api';
 import {
   Container,
   Typography,
@@ -150,13 +150,7 @@ const WorkoutHistory = () => {
 
   const deleteWorkout = async (workoutId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/completed-workouts/${workoutId}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to delete workout: ${response.status} ${response.statusText}`);
-      }
+      await apiService.deleteCompletedWorkout(workoutId);
       
       const updatedHistory = workoutHistory.filter(workout => workout._id !== workoutId);
       setWorkoutHistory(updatedHistory);
@@ -190,19 +184,8 @@ const WorkoutHistory = () => {
 
   const handleEditSave = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/completed-workouts/${editWorkout._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editWorkout)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to update workout: ${response.status} ${response.statusText}`);
-      }
-      
-      const updatedWorkout = await response.json();
+      const response = await apiService.updateCompletedWorkout(editWorkout._id, editWorkout);
+      const updatedWorkout = response.data;
       const updatedHistory = workoutHistory.map(workout =>
         workout._id === editWorkout._id ? updatedWorkout : workout
       );

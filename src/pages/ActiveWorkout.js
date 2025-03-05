@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiService from '../services/api';
 import {
   Container,
   Typography,
@@ -507,13 +508,9 @@ const ActiveWorkout = () => {
       // If not in localStorage or parsing failed, fetch from API
       console.log(`Fetching workout data from API for user: ${userId}`);
       // The API doesn't use userId as a query param, it returns all workouts
-      const response = await fetch(`http://localhost:5000/api/completed-workouts`);
+      const response = await apiService.getCompletedWorkouts();
       
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
-      }
-      
-      let data = await response.json();
+      let data = response.data;
       console.log(`Received ${data.length} total workouts from API`);
       
       // Filter workouts by user ID if provided
@@ -1020,17 +1017,7 @@ const ActiveWorkout = () => {
     };
     
     try {
-      const response = await fetch('http://localhost:5000/api/completed-workouts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(completedWorkout)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
-      }
+      await apiService.createCompletedWorkout(completedWorkout);
       
       // Update workout history in localStorage
       try {
