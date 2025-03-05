@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button, Typography, Box } from '@mui/material';
+import { Button, Box } from '@mui/material';
 import TimerIcon from '@mui/icons-material/Timer';
 
 const Timer = () => {
@@ -36,7 +36,7 @@ const Timer = () => {
       }
     }
     return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
+  }, [isActive, timeLeft, playBeep]);
 
   const startTimer = () => {
     setTimeLeft(60);

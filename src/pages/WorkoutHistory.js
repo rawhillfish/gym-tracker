@@ -64,7 +64,7 @@ const WorkoutHistory = () => {
   const [chartMetric, setChartMetric] = useState('volume'); // 'volume' or 'maxWeight'
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [users, setUsers] = useState([]);
-  const [userColors, setUserColors] = useState({});
+
 
   useEffect(() => {
     fetchWorkouts();

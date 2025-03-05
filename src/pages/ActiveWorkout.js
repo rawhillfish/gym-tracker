@@ -13,7 +13,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Divider,
   CircularProgress,
   Snackbar,
   Alert,
@@ -280,7 +279,7 @@ const ActiveWorkout = () => {
         weight: set.weight,
         reps: set.reps
       })));
-    }, [exercise.sets.length]);
+    }, [exercise.sets]);
     
     // Update local state without triggering global state update
     const handleInputChange = (setIndex, field, value) => {
