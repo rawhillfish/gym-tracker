@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { apiService } from '../services';
 import {
   Container,
   Typography,
@@ -91,12 +92,9 @@ const WorkoutHistory = () => {
 
   const fetchWorkouts = async () => {
     try {
-      // Use environment variable for API URL or fallback to development URL
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${API_URL}/api/completed-workouts`);
-      const data = await response.json();
-      console.log('Fetched workouts:', data);
-      setWorkoutHistory(data);
+      const response = await apiService.getCompletedWorkouts();
+      console.log('Fetched workouts:', response.data);
+      setWorkoutHistory(response.data);
     } catch (error) {
       console.error('Error fetching workouts:', error);
     }
@@ -104,12 +102,9 @@ const WorkoutHistory = () => {
 
   const fetchUsers = async () => {
     try {
-      // Use environment variable for API URL or fallback to development URL
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${API_URL}/api/users`);
-      const data = await response.json();
-      console.log('Fetched users:', data);
-      setUsers(data);
+      const response = await apiService.getUsers();
+      console.log('Fetched users:', response.data);
+      setUsers(response.data);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
