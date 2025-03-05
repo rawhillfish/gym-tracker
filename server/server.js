@@ -140,6 +140,11 @@ const checkAndSeedDatabase = async () => {
 
 connectDB();
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Routes
 app.use('/api/completed-workouts', require('./routes/completed-workouts'));
 app.use('/api/users', require('./routes/users'));
@@ -155,10 +160,7 @@ if (process.env.NODE_ENV === 'production') {
     next();
   });
 
-  // Add a health check endpoint
-  app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok' });
-  });
+  // Health check endpoint already defined above
 }
 
 // Error handling middleware
