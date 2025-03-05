@@ -4,7 +4,12 @@ const cors = require('cors');
 const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
-require('dotenv').config();
+const dotenv = require('dotenv');
+
+// Load environment variables based on NODE_ENV
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
+console.log(`Loading environment from ${envFile}`);
+dotenv.config({ path: path.resolve(__dirname, envFile) });
 
 const app = express();
 
