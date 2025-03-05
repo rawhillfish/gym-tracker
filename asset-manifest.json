@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/gym-tracker/static/css/main.2a8b4231.css",
+    "main.js": "/gym-tracker/static/js/main.16e6ca5b.js",
+    "static/js/453.666443ab.chunk.js": "/gym-tracker/static/js/453.666443ab.chunk.js",
+    "index.html": "/gym-tracker/index.html",
+    "main.2a8b4231.css.map": "/gym-tracker/static/css/main.2a8b4231.css.map",
+    "main.16e6ca5b.js.map": "/gym-tracker/static/js/main.16e6ca5b.js.map",
+    "453.666443ab.chunk.js.map": "/gym-tracker/static/js/453.666443ab.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.2a8b4231.css",
+    "static/js/main.16e6ca5b.js"
+  ]
+}
