@@ -141,11 +141,10 @@ const ActiveWorkout = () => {
 
   useEffect(() => {
     // Fetch workout templates
-    fetch('http://localhost:5000/api/workout-templates')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.length > 0) {
-          setWorkoutTemplates(data);
+    apiService.getWorkoutTemplates()
+      .then(response => {
+        if (response.data && response.data.length > 0) {
+          setWorkoutTemplates(response.data);
         } else {
           // Fallback to localStorage if no templates in MongoDB
           const savedTemplates = localStorage.getItem('workoutTemplates');
@@ -164,18 +163,16 @@ const ActiveWorkout = () => {
       });
 
     // Fetch users
-    fetch('http://localhost:5000/api/users')
-      .then(res => res.json())
-      .then(data => setUsers(data))
+    apiService.getUsers()
+      .then(response => setUsers(response.data))
       .catch(err => console.error('Error fetching users:', err));
       
     // Fetch exercises
-    fetch('http://localhost:5000/api/exercises')
-      .then(res => res.json())
-      .then(data => {
-        setExerciseList(data);
+    apiService.getExercises()
+      .then(response => {
+        setExerciseList(response.data);
         // If no exercises exist in the database, create default ones
-        if (data.length === 0) {
+        if (response.data.length === 0) {
           const defaultExercises = [
             { name: 'Bench Press', defaultReps: 8, category: 'Chest' },
             { name: 'Squat', defaultReps: 8, category: 'Legs' },
@@ -192,17 +189,10 @@ const ActiveWorkout = () => {
             { name: 'Face Pulls', defaultReps: 15, category: 'Shoulders' },
           ];
           
-          fetch('http://localhost:5000/api/exercises/bulk', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ exercises: defaultExercises })
-          })
-            .then(res => res.json())
-            .then(data => {
-              setExerciseList(data);
-              console.log('Default exercises created:', data);
+          apiService.createExercisesBulk(defaultExercises)
+            .then(response => {
+              setExerciseList(response.data);
+              console.log('Default exercises created:', response.data);
             })
             .catch(err => console.error('Error creating default exercises:', err));
         }

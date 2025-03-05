@@ -50,6 +50,7 @@ const apiService = {
   createExercise: (data) => api.post('/api/exercises', data),
   updateExercise: (id, data) => api.put(`/api/exercises/${id}`, data),
   deleteExercise: (id) => api.delete(`/api/exercises/${id}`),
+  createExercisesBulk: (exercises) => api.post('/api/exercises/bulk', { exercises }),
 
   // Workout Templates
   getWorkoutTemplates: () => api.get('/api/workout-templates'),
