@@ -46,29 +46,29 @@ api.interceptors.response.use(
 // API service methods
 const apiService = {
   // Exercises
-  getExercises: () => api.get('/exercises'),
-  createExercise: (data) => api.post('/exercises', data),
-  updateExercise: (id, data) => api.put(`/exercises/${id}`, data),
-  deleteExercise: (id) => api.delete(`/exercises/${id}`),
+  getExercises: () => api.get('/api/exercises'),
+  createExercise: (data) => api.post('/api/exercises', data),
+  updateExercise: (id, data) => api.put(`/api/exercises/${id}`, data),
+  deleteExercise: (id) => api.delete(`/api/exercises/${id}`),
 
   // Workout Templates
-  getWorkoutTemplates: () => api.get('/workout-templates'),
-  createWorkoutTemplate: (data) => api.post('/workout-templates', data),
-  updateWorkoutTemplate: (id, data) => api.put(`/workout-templates/${id}`, data),
-  deleteWorkoutTemplate: (id) => api.delete(`/workout-templates/${id}`),
-  importWorkoutTemplates: (templates) => api.post('/workout-templates/import', { templates }),
+  getWorkoutTemplates: () => api.get('/api/workout-templates'),
+  createWorkoutTemplate: (data) => api.post('/api/workout-templates', data),
+  updateWorkoutTemplate: (id, data) => api.put(`/api/workout-templates/${id}`, data),
+  deleteWorkoutTemplate: (id) => api.delete(`/api/workout-templates/${id}`),
+  importWorkoutTemplates: (templates) => api.post('/api/workout-templates/import', { templates }),
 
   // Completed Workouts
-  getCompletedWorkouts: () => api.get('/completed-workouts'),
-  createCompletedWorkout: (data) => api.post('/completed-workouts', data),
-  getCompletedWorkoutById: (id) => api.get(`/completed-workouts/${id}`),
-  updateCompletedWorkout: (id, data) => api.put(`/completed-workouts/${id}`, data),
-  deleteCompletedWorkout: (id) => api.delete(`/completed-workouts/${id}`),
+  getCompletedWorkouts: () => api.get('/api/completed-workouts'),
+  createCompletedWorkout: (data) => api.post('/api/completed-workouts', data),
+  getCompletedWorkoutById: (id) => api.get(`/api/completed-workouts/${id}`),
+  updateCompletedWorkout: (id, data) => api.put(`/api/completed-workouts/${id}`, data),
+  deleteCompletedWorkout: (id) => api.delete(`/api/completed-workouts/${id}`),
 
   // Users
-  getUsers: () => api.get('/users'),
-  createUser: (data) => api.post('/users', data),
-  updateUser: (id, data) => api.put(`/users/${id}`, data),
+  getUsers: () => api.get('/api/users'),
+  createUser: (data) => api.post('/api/users', data),
+  updateUser: (id, data) => api.put(`/api/users/${id}`, data),
 };
 
 export default apiService;
