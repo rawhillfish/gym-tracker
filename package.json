@@ -44,7 +44,6 @@
       "react-app/jest"
     ]
   },
-  "proxy": "https://gym-tracker-api.onrender.com",
   "browserslist": {
     "production": [
       ">0.2%",
