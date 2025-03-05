@@ -22,7 +22,15 @@ app.use(compression());
 // Connect to MongoDB
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+    // Use different MongoDB URI for production vs development
+    const mongoURI = process.env.NODE_ENV === 'production' 
+      ? process.env.MONGODB_PROD_URI || process.env.MONGODB_URI
+      : process.env.MONGODB_URI;
+    
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('Using MongoDB URI:', mongoURI.substring(0, 20) + '...');
+    
+    const conn = await mongoose.connect(mongoURI, {
       serverSelectionTimeoutMS: 5000
     });
     console.log(`MongoDB Connected: ${conn.connection.host}`);

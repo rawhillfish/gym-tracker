@@ -7,6 +7,11 @@ const API_URL = process.env.REACT_APP_API_URL ||
     ? 'https://gym-tracker-api.onrender.com' // Replace with your actual Render URL when deployed
     : 'http://localhost:5000');
 
+// Log the API URL and environment for debugging
+console.log('API URL:', API_URL);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+
 // Create an axios instance with default config
 const api = axios.create({
   baseURL: API_URL,

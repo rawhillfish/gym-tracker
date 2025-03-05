@@ -13,6 +13,7 @@ app.use(express.json());
 // Simple proxy endpoint - handle all routes
 app.all('*', async (req, res) => {
   const apiUrl = process.env.BACKEND_API_URL || 'https://gym-tracker-api.onrender.com';
+  console.log('Backend API URL:', apiUrl);
   // Add /api prefix to the path for the backend
   const path = req.path;
   const fullUrl = apiUrl + '/api' + path;

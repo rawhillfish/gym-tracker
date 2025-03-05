@@ -4,6 +4,8 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  NODE_ENV = "production"
+  REACT_APP_API_URL = ""
 
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
