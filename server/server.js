@@ -16,7 +16,7 @@ const app = express();
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://gym-tracker-rawhillfish.netlify.app', process.env.FRONTEND_URL, 'https://gym-tracker-rawhillfish.netlify.app/'] 
+    ? ['https://gym-tracker-rawhillfish.netlify.app', 'https://work-it-out-tracker.netlify.app', process.env.FRONTEND_URL, 'https://gym-tracker-rawhillfish.netlify.app/', 'https://work-it-out-tracker.netlify.app/'] 
     : '*',
   credentials: true
 }));
