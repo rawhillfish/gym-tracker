@@ -84,14 +84,16 @@ const WorkoutHistory = () => {
     users.forEach((user, index) => {
       colors[user._id] = defaultColors[index % defaultColors.length];
     });
-    setUserColors(colors);
+    // User colors are now stored in the colors variable
     console.log('Users:', users);
     console.log('User colors:', colors);
   }, [users]);
 
   const fetchWorkouts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/completed-workouts');
+      // Use environment variable for API URL or fallback to development URL
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${API_URL}/api/completed-workouts`);
       const data = await response.json();
       console.log('Fetched workouts:', data);
       setWorkoutHistory(data);
@@ -102,7 +104,9 @@ const WorkoutHistory = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/users');
+      // Use environment variable for API URL or fallback to development URL
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${API_URL}/api/users`);
       const data = await response.json();
       console.log('Fetched users:', data);
       setUsers(data);
