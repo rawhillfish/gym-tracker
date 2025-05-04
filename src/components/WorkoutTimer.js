@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Chip } from '@mui/material';
+import { Chip, Box, Typography } from '@mui/material';
 import TimerIcon from '@mui/icons-material/Timer';
 
-const WorkoutTimer = ({ startTime }) => {
+const WorkoutTimer = ({ startTime, sx }) => {
   const [elapsedTime, setElapsedTime] = useState(0);
   
   useEffect(() => {
@@ -36,11 +36,24 @@ const WorkoutTimer = ({ startTime }) => {
   
   return (
     <Chip
-      icon={<TimerIcon />}
+      icon={<TimerIcon fontSize="medium" />}
       label={formatTime(elapsedTime)}
       color="primary"
       variant="outlined"
-      sx={{ fontWeight: 'medium' }}
+      sx={{ 
+        fontWeight: 'bold', 
+        fontSize: '1.2rem', 
+        height: 'auto', 
+        padding: '8px 4px',
+        '& .MuiChip-icon': { 
+          fontSize: '1.5rem',
+          marginLeft: '8px'
+        },
+        '& .MuiChip-label': {
+          padding: '4px 12px 4px 8px'
+        },
+        ...sx
+      }}
     />
   );
 };

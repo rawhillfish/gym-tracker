@@ -16,10 +16,18 @@ import {
   DialogActions,
   CircularProgress,
   Snackbar,
-  Alert
+  Alert,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import WorkoutTimer from '../components/WorkoutTimer';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 
 const motivationalMessages = [
   "Amazing work! You're getting stronger every day!",
@@ -197,72 +205,6 @@ const ActiveWorkout = () => {
       console.error('Error saving activeWorkouts to localStorage:', error);
     }
   }, [activeWorkouts]);
-
-  // Debug function to check for completed workouts
-  const checkCompletedWorkouts = async () => {
-    try {
-      console.log('Checking for completed workouts...');
-      const response = await apiService.getCompletedWorkouts();
-      const completedWorkouts = response?.data || [];
-      console.log(`Found ${completedWorkouts.length} completed workouts`);
-      
-      // Log the raw data for inspection
-      console.log('Raw completed workouts data:');
-      if (Array.isArray(completedWorkouts)) {
-        completedWorkouts.forEach((workout, index) => {
-          console.log(`\nWorkout ${index + 1} raw data:`, JSON.stringify(workout, null, 2));
-        });
-        
-        completedWorkouts.forEach((workout, index) => {
-          console.log(`\nWorkout ${index + 1}:`);
-          console.log(`Template ID: ${workout.templateId}`);
-          console.log(`Template Name: ${workout.templateName}`);
-          console.log(`Exercises: ${workout.exercises?.length || 0}`);
-          
-          if (workout.exercises && workout.exercises.length > 0) {
-            workout.exercises.forEach((ex, exIndex) => {
-              console.log(`  Exercise ${exIndex + 1}: ${ex.name} (ID: ${ex.exerciseId})`);
-              if (ex.sets && ex.sets.length > 0) {
-                console.log(`    Sets: ${ex.sets.length}`);
-                console.log(`    Completed sets: ${ex.sets.filter(s => s.completed).length}`);
-                console.log(`    Weights: ${ex.sets.map(s => s.weight).join(', ')}`);
-              }
-            });
-          }
-        });
-        
-        // Check for Leg Day workouts specifically
-        const legDayWorkouts = completedWorkouts.filter(w => w.templateName === 'Leg Day');
-        console.log(`\nFound ${legDayWorkouts.length} Leg Day workouts`);
-        
-        legDayWorkouts.forEach((workout, index) => {
-          console.log(`\nLeg Day Workout ${index + 1}:`);
-          console.log(`Template ID: ${workout.templateId}`);
-          console.log(`Template ID type: ${typeof workout.templateId}`);
-        });
-        
-        // Check if any workouts match our hardcoded ID
-        const matchingIdWorkouts = completedWorkouts.filter(w => 
-          w.templateId === '6816fa23d7a9453c69acdddc' || 
-          w.templateId === '6816fa22d7a9453c69acdddc'
-        );
-        
-        console.log(`\nWorkouts matching our hardcoded IDs: ${matchingIdWorkouts.length}`);
-        matchingIdWorkouts.forEach((workout, index) => {
-          console.log(`Matching workout ${index + 1}: ${workout.templateName} (ID: ${workout.templateId})`);
-        });
-      } else {
-        console.log('No completed workouts found or invalid data format');
-      }
-    } catch (error) {
-      console.error('Error checking completed workouts:', error);
-    }
-  };
-  
-  // Call the debug function on component mount
-  useEffect(() => {
-    checkCompletedWorkouts();
-  }, []);
 
   // Helper function to find template ID by name
   const findTemplateIdByName = (templateName) => {
@@ -478,119 +420,6 @@ const ActiveWorkout = () => {
     return weights.some(weight => weight !== '' && weight !== '0' && weight !== 0);
   };
 
-  // Function to load sample completed workout data for testing
-  const loadSampleCompletedWorkouts = () => {
-    console.log('Loading sample completed workout data for testing');
-    
-    // Create sample completed workout with realistic data
-    const sampleCompletedWorkouts = [
-      {
-        _id: 'sample-workout-1',
-        templateId: 'template-1',  // Make sure this matches a real template ID
-        templateName: 'Full Body Workout',
-        startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
-        endTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000 + 3600000).toISOString(), // 1 hour after start
-        userId: 'user-1',
-        userName: 'Test User',
-        exercises: [
-          {
-            _id: 'ex-1',
-            name: 'Bench Press',
-            category: 'Chest',
-            sets: [
-              { weight: '135', reps: 10, completed: true },
-              { weight: '155', reps: 8, completed: true },
-              { weight: '175', reps: 6, completed: true }
-            ]
-          },
-          {
-            _id: 'ex-2',
-            name: 'Squat',
-            category: 'Legs',
-            sets: [
-              { weight: '185', reps: 10, completed: true },
-              { weight: '205', reps: 8, completed: true },
-              { weight: '225', reps: 6, completed: true }
-            ]
-          },
-          {
-            _id: 'ex-3',
-            name: 'Deadlift',
-            category: 'Back',
-            sets: [
-              { weight: '225', reps: 10, completed: true },
-              { weight: '275', reps: 8, completed: true },
-              { weight: '315', reps: 5, completed: true }
-            ]
-          }
-        ]
-      },
-      // Add another sample workout with a different template
-      {
-        _id: 'sample-workout-2',
-        templateId: 'template-2',  // Different template ID
-        templateName: 'Push Day',
-        startTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-        endTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 3600000).toISOString(), // 1 hour after start
-        userId: 'user-1',
-        userName: 'Test User',
-        exercises: [
-          {
-            _id: 'ex-4',
-            name: 'Bench Press',
-            category: 'Chest',
-            sets: [
-              { weight: '145', reps: 10, completed: true },
-              { weight: '165', reps: 8, completed: true },
-              { weight: '185', reps: 6, completed: true }
-            ]
-          },
-          {
-            _id: 'ex-5',
-            name: 'Overhead Press',
-            category: 'Shoulders',
-            sets: [
-              { weight: '95', reps: 10, completed: true },
-              { weight: '105', reps: 8, completed: true },
-              { weight: '115', reps: 6, completed: true }
-            ]
-          },
-          {
-            _id: 'ex-6',
-            name: 'Tricep Pushdown',
-            category: 'Arms',
-            sets: [
-              { weight: '50', reps: 12, completed: true },
-              { weight: '60', reps: 10, completed: true },
-              { weight: '70', reps: 8, completed: true }
-            ]
-          }
-        ]
-      }
-    ];
-    
-    // Save to localStorage
-    try {
-      localStorage.setItem('completedWorkouts', JSON.stringify(sampleCompletedWorkouts));
-      console.log('Sample completed workouts saved to localStorage');
-      
-      // Display the sample data in console
-      console.log('SAMPLE DATA LOADED:', JSON.stringify(sampleCompletedWorkouts, null, 2));
-      
-      // Update state
-      setPreviousWorkouts(sampleCompletedWorkouts);
-      
-      // Show confirmation
-      setSnackbarMessage('Sample workout data loaded for testing');
-      setSnackbarOpen(true);
-      
-      return sampleCompletedWorkouts;
-    } catch (error) {
-      console.error('Error saving sample workouts to localStorage:', error);
-      return [];
-    }
-  };
-
   // Function to start a workout with pre-filled weights
   const startWorkout = async (template) => {
     // Make sure we have a valid template
@@ -637,16 +466,9 @@ const ActiveWorkout = () => {
             console.log('Using real workout data with weights');
             userPreviousWorkouts = realWorkoutData;
           } else {
-            console.log('No weights found in real data, checking if sample data is needed');
+            console.log('No weights found in real data, no sample data will be used');
             
-            // If we're using sample data already, keep using it
-            if (previousWorkouts.length > 0 && previousWorkouts[0]?.userId === 'user-1') {
-              console.log('Using existing sample data');
-              userPreviousWorkouts = previousWorkouts;
-            } else {
-              console.log('Loading sample data as fallback');
-              userPreviousWorkouts = loadSampleCompletedWorkouts();
-            }
+            userPreviousWorkouts = [];
           }
           
           console.log(`Final workout data for user has ${userPreviousWorkouts.length} workouts`);
@@ -666,6 +488,7 @@ const ActiveWorkout = () => {
       const currentTime = new Date().toISOString();
       const newWorkouts = usersWithPreviousWorkouts.map(({ user, previousWorkouts }) => {
         const workout = {
+          id: `workout-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           templateId: template._id,
           templateName: template.name || 'Unnamed Workout',
           startTime: currentTime,
@@ -680,19 +503,6 @@ const ActiveWorkout = () => {
             console.log(`Target sets count: ${targetSetsCount}`);
             
             console.log(`Getting weights for ${exercise.name} from ${previousWorkouts.length} workouts`);
-            console.log(`First workout source: ${previousWorkouts.length > 0 ? (previousWorkouts[0]._id === 'sample-workout-1' ? 'SAMPLE DATA' : 'Real data') : 'None'}`);
-            
-            // Log the first few workouts to help diagnose issues
-            if (previousWorkouts.length > 0) {
-              previousWorkouts.slice(0, 2).forEach((workout, idx) => {
-                console.log(`Workout ${idx+1} info:`, {
-                  id: workout._id,
-                  name: workout.templateName,
-                  exercises: workout.exercises?.length || 0,
-                  source: workout._id === 'sample-workout-1' ? 'SAMPLE DATA' : 'Real data'
-                });
-              });
-            }
             
             // Get weights from the same template
             const lastUsedWeights = getLastUsedWeights(previousWorkouts, exercise, targetSetsCount, template);
@@ -758,6 +568,7 @@ const ActiveWorkout = () => {
       const currentTime = new Date().toISOString();
       const newWorkouts = selectedUsers.map(user => {
         return {
+          id: `workout-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           templateId: template._id,
           templateName: template.name || 'Unnamed Workout',
           startTime: currentTime,
@@ -859,6 +670,9 @@ const ActiveWorkout = () => {
     console.log('Workout to complete:', {
       templateName: workoutToComplete.templateName,
       templateId: workoutToComplete.templateId,
+      userId: workoutToComplete.userId,
+      userName: workoutToComplete.userName,
+      userColor: workoutToComplete.userColor,
       exercises: workoutToComplete.exercises?.map(ex => ({
         name: ex.name, 
         id: ex.id || ex._id, 
@@ -895,17 +709,20 @@ const ActiveWorkout = () => {
     }
     
     try {
+      // Create a deep copy of the workout to avoid modifying the original
+      const workoutCopy = JSON.parse(JSON.stringify(workoutToComplete));
+      
       // Save to database
       console.log('Saving completed workout to database');
-      const response = await apiService.createCompletedWorkout(workoutToComplete);
+      const response = await apiService.createCompletedWorkout(workoutCopy);
       console.log('Workout saved successfully:', response.data);
       
-      // Update local state
-      setActiveWorkouts(activeWorkouts.filter(w => w.id !== workoutId));
+      // Update local state - only remove the completed workout
+      const updatedWorkouts = activeWorkouts.filter(w => w.id !== workoutId);
+      setActiveWorkouts(updatedWorkouts);
       
-      // Update localStorage
+      // Update localStorage - only remove the completed workout
       try {
-        const updatedWorkouts = activeWorkouts.filter(w => w.id !== workoutId);
         localStorage.setItem('activeWorkouts', JSON.stringify(updatedWorkouts));
         console.log('Updated active workouts in localStorage');
       } catch (error) {
@@ -920,12 +737,14 @@ const ActiveWorkout = () => {
         console.error('Error clearing localStorage:', error);
       }
       
-      // Show success message
-      setSnackbarMessage('Workout completed and saved!');
+      // Show success message with user name
+      setSnackbarMessage(`Workout for ${workoutToComplete.userName || 'user'} completed and saved!`);
       setSnackbarOpen(true);
       
-      // Navigate back to home
-      navigate('/');
+      // Only navigate away if no workouts left
+      if (updatedWorkouts.length === 0) {
+        navigate('/');
+      }
     } catch (error) {
       console.error('Error saving workout:', error);
       setSnackbarMessage('Error saving workout. Please try again.');
@@ -958,7 +777,7 @@ const ActiveWorkout = () => {
       }
       
       if (data.length === 0) {
-        console.log('No workout data found in database, checking localStorage');
+        console.log('No workout data found in database');
         
         // Try to get from localStorage as fallback
         const cachedData = localStorage.getItem('completedWorkouts');
@@ -1084,6 +903,40 @@ const ActiveWorkout = () => {
     // This is different from the set-level functions where we need immediate saving
   };
 
+  // Function to move an exercise up in the order
+  const moveExerciseUp = (workoutIndex, exerciseIndex) => {
+    if (exerciseIndex === 0) return; // Already at the top
+    
+    const updatedWorkouts = [...activeWorkouts];
+    const exercises = updatedWorkouts[workoutIndex].exercises;
+    
+    // Swap the exercise with the one above it
+    [exercises[exerciseIndex], exercises[exerciseIndex - 1]] = 
+    [exercises[exerciseIndex - 1], exercises[exerciseIndex]];
+    
+    setActiveWorkouts(updatedWorkouts);
+    
+    // Save to localStorage
+    localStorage.setItem('activeWorkouts', JSON.stringify(updatedWorkouts));
+  };
+  
+  // Function to move an exercise down in the order
+  const moveExerciseDown = (workoutIndex, exerciseIndex) => {
+    const updatedWorkouts = [...activeWorkouts];
+    const exercises = updatedWorkouts[workoutIndex].exercises;
+    
+    if (exerciseIndex === exercises.length - 1) return; // Already at the bottom
+    
+    // Swap the exercise with the one below it
+    [exercises[exerciseIndex], exercises[exerciseIndex + 1]] = 
+    [exercises[exerciseIndex + 1], exercises[exerciseIndex]];
+    
+    setActiveWorkouts(updatedWorkouts);
+    
+    // Save to localStorage
+    localStorage.setItem('activeWorkouts', JSON.stringify(updatedWorkouts));
+  };
+
   // Component to render exercise sets
   const ExerciseSet = ({ exerciseIndex, exercise, workoutIndex }) => {
     // Local state for input values to prevent re-renders on every keystroke
@@ -1187,49 +1040,87 @@ const ActiveWorkout = () => {
 
     return (
       <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="h6">{exercise.name}</Typography>
-            {exercise.weightPreFilled && (
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  ml: 1, 
-                  bgcolor: 'success.light', 
-                  color: 'white', 
-                  px: 1, 
-                  py: 0.5, 
-                  borderRadius: 1,
-                  display: 'inline-flex',
-                  alignItems: 'center'
-                }}
-              >
-                Pre-filled from history
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+              <Tooltip title="Remove Exercise">
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  onClick={() => removeExercise(workoutIndex, exerciseIndex)}
+                  startIcon={<RemoveCircleOutlineIcon />}
+                  sx={{ mr: 2, flexShrink: 0 }}
+                >
+                  {/* Empty button text, using icon only */}
+                </Button>
+              </Tooltip>
+              <Typography variant="h6" sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
+                {exercise.name}
+                {exercise.weightPreFilled && (
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      display: 'inline-block',
+                      bgcolor: 'success.light', 
+                      color: 'white', 
+                      px: 1, 
+                      py: 0.5, 
+                      borderRadius: 1,
+                      ml: 1,
+                      flexShrink: 0
+                    }}
+                  >
+                    Pre-filled from history
+                  </Typography>
+                )}
               </Typography>
-            )}
-          </Box>
-          <Box>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => addSet()}
-              sx={{ mr: 1 }}
-            >
-              Add Set
-            </Button>
-            <Button
-              variant="outlined"
-              color="error"
-              size="small"
-              onClick={() => removeExercise(workoutIndex, exerciseIndex)}
-            >
-              Remove Exercise
-            </Button>
+              <Box sx={{ display: 'flex', ml: 2, flexShrink: 0 }}>
+                <Tooltip title="Move Up">
+                  <span> {/* Wrapper to handle disabled state with tooltip */}
+                    <IconButton 
+                      size="small" 
+                      color="primary" 
+                      onClick={() => moveExerciseUp(workoutIndex, exerciseIndex)}
+                      disabled={exerciseIndex === 0}
+                      sx={{ mr: 1 }}
+                    >
+                      <ArrowUpwardIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Move Down">
+                  <span> {/* Wrapper to handle disabled state with tooltip */}
+                    <IconButton 
+                      size="small" 
+                      color="primary" 
+                      onClick={() => moveExerciseDown(workoutIndex, exerciseIndex)}
+                      disabled={exerciseIndex === activeWorkouts[workoutIndex].exercises.length - 1}
+                    >
+                      <ArrowDownwardIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+            </Box>
           </Box>
         </Box>
 
         {exercise.sets.map((set, setIndex) => (
           <Box key={setIndex} sx={{ display: 'flex', gap: 2, mb: 1, alignItems: 'center' }}>
+            {exercise.sets.length > 1 && (
+              <Tooltip title="Remove Set">
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  onClick={() => removeSet(setIndex)}
+                  startIcon={<DeleteOutlineIcon />}
+                >
+                  {/* Empty button text, using icon only */}
+                </Button>
+              </Tooltip>
+            )}
             <Typography sx={{ minWidth: 60 }}>Set {setIndex + 1}</Typography>
             <TextField
               label="Weight"
@@ -1251,26 +1142,31 @@ const ActiveWorkout = () => {
               sx={{ width: 100 }}
               inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
             />
-            <Button
-              variant={set.completed ? "contained" : "outlined"}
-              color={set.completed ? "success" : "primary"}
-              size="small"
-              onClick={() => updateCompletedStatus(setIndex, !set.completed)}
-            >
-              {set.completed ? "Completed" : "Mark Complete"}
-            </Button>
-            {exercise.sets.length > 1 && (
+            <Tooltip title={set.completed ? "Mark Incomplete" : "Mark Complete"}>
               <Button
-                variant="outlined"
-                color="error"
+                variant={set.completed ? "contained" : "outlined"}
+                color={set.completed ? "success" : "primary"}
                 size="small"
-                onClick={() => removeSet(setIndex)}
+                onClick={() => updateCompletedStatus(setIndex, !set.completed)}
+                startIcon={set.completed ? <CheckCircleIcon /> : <CheckCircleOutlineIcon />}
               >
-                Remove
+                {/* Empty button text, using icon only */}
               </Button>
-            )}
+            </Tooltip>
           </Box>
         ))}
+        
+        {/* Add Set button below the last set */}
+        <Box sx={{ display: 'flex', mt: 2, mb: 1 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => addSet()}
+            sx={{ mr: 1 }}
+          >
+            Add Set
+          </Button>
+        </Box>
       </Box>
     );
   };
@@ -1397,31 +1293,6 @@ const ActiveWorkout = () => {
         <Typography variant="h4" gutterBottom>
           Active Workout
         </Typography>
-        <Box>
-          <Button 
-            variant="outlined" 
-            color="secondary" 
-            onClick={loadSampleCompletedWorkouts}
-            size="small"
-            sx={{ mr: 1 }}
-          >
-            Load Sample Data
-          </Button>
-          <Button 
-            variant="outlined" 
-            color="error" 
-            onClick={() => {
-              localStorage.removeItem('completedWorkouts');
-              setPreviousWorkouts([]);
-              setSnackbarMessage('Cleared workout cache');
-              setSnackbarOpen(true);
-              console.log('Cleared localStorage workout cache');
-            }}
-            size="small"
-          >
-            Clear Cache
-          </Button>
-        </Box>
       </Box>
 
       {loading && (
@@ -1459,54 +1330,34 @@ const ActiveWorkout = () => {
               }
             }}
           >
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 3, gap: 2 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box 
-                    sx={{ 
-                      width: 16, 
-                      height: 16, 
-                      borderRadius: '50%', 
-                      bgcolor: workout.userColor || '#cccccc',
-                      flexShrink: 0
-                    }} 
-                  />
-                  <Typography variant="h5" sx={{ wordBreak: 'break-word' }}>
-                    {workout.templateName} - {workout.userName}
-                  </Typography>
-                </Box>
-                {/* Display workout duration */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', color: workout.userColor, mb: 2, textAlign: 'center' }}>
+                Workout: {workout.templateName} - {workout.userName}
+              </Typography>
+              <Box sx={{ my: 4 }}>
                 <WorkoutTimer 
                   startTime={workout.startTime} 
-                  sx={{ alignSelf: 'flex-start' }}
+                  sx={{ transform: 'scale(2)', transformOrigin: 'center' }}
                 />
               </Box>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setAddExerciseDialog(workoutIndex)}
-                >
-                  Add Exercise
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  size="small"
-                  onClick={() => confirmCancelWorkout(workoutIndex)}
-                >
-                  Cancel Workout
-                </Button>
-                <Button
-                  variant="contained"
-                  color="success"
-                  size="small"
-                  onClick={() => finishWorkout(workout.id)}
-                  disabled={saving}
-                >
-                  Finish Workout
-                </Button>
-              </Box>
+              <Button
+                variant="outlined"
+                color="error"
+                size="medium"
+                onClick={() => confirmCancelWorkout(workoutIndex)}
+              >
+                Cancel Workout
+              </Button>
+            </Box>
+            
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setAddExerciseDialog(workoutIndex)}
+              >
+                Add Exercise
+              </Button>
             </Box>
 
             {workout.exercises.map((exercise, exerciseIndex) => (
@@ -1517,6 +1368,33 @@ const ActiveWorkout = () => {
                 workoutIndex={workoutIndex}
               />
             ))}
+            
+            {/* Add Exercise button above Finish Workout */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 2 }}>
+              <Button
+                variant="outlined"
+                color="primary"
+                size="medium"
+                onClick={() => setAddExerciseDialog(workoutIndex)}
+                sx={{ minWidth: '200px', mb: 2 }}
+              >
+                Add Exercise
+              </Button>
+            </Box>
+            
+            {/* Finish Workout button at the bottom */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+              <Button
+                variant="contained"
+                color="success"
+                size="large"
+                onClick={() => finishWorkout(workout.id)}
+                disabled={saving}
+                sx={{ minWidth: '200px' }}
+              >
+                Finish Workout
+              </Button>
+            </Box>
           </Paper>
         ))}
       </Box>

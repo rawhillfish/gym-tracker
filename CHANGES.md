@@ -234,6 +234,73 @@ This document tracks all significant changes made to the Gym Tracker application
   - Improved user experience by making it easier to find specific templates
   - Ensured consistent sorting behavior throughout the application
 
+- Cleaned up Active Workout page
+  - Removed "Load Sample Data" and "Clear Cache" buttons
+  - Removed sample data generation functionality
+  - Eliminated debug logging and test code
+  - Simplified the workout data loading logic
+  - Removed localStorage fallback to sample data
+  - Streamlined the UI for a cleaner user experience
+  - Kept helper functions for finding template and exercise IDs to maintain functionality
+
+- Improved button UI in Active Workout page
+  - Replaced text buttons with icon buttons for a cleaner interface
+  - Added tooltips to make button functions clear
+  - Updated "Mark Complete" buttons to use checkmark icons
+  - Updated "Remove" buttons to use delete icons
+  - Maintained consistent color scheme (primary for complete, error for remove)
+  - Reduced visual clutter while maintaining functionality
+  - Moved "Remove Exercise" button to the left of the exercise name for better organization
+  - Kept exercise name aligned to the left of the container for better readability
+  - Moved "Add Set" button below the last set for better logical flow
+  - Moved "Pre-filled from history" indicator to the right of the exercise name for better visibility
+  - Moved "Remove Set" button to the left of the set number for better organization
+  - Created consistent placement of remove buttons (always on the left)
+
+- Enhanced workout card layout
+  - Reorganized the workout card with a clear visual hierarchy
+  - Improved workout header to show "Workout: {Template Name} - {Username}"
+  - Combined template name and username into a single header line
+  - Positioned the large workout timer below the header
+  - Increased spacing around the timer for better visual prominence
+  - Placed the "Cancel Workout" button below the timer
+  - Made the timer twice as large to emphasize workout duration
+  - Improved the timer styling with larger font and better spacing
+  - Enhanced the timer icon for better visibility
+  - Centered all elements for a cleaner, more focused layout
+  - Moved the "Add Exercise" button to two locations for better accessibility:
+    - At the top of the exercise list for quick access
+    - Above the "Finish Workout" button for adding final exercises
+  - Added a second "Add Exercise" button above the "Finish Workout" button
+  - Improved overall workout card organization and visual flow
+
+- Added exercise reordering functionality
+  - Added "Move Up" and "Move Down" arrow buttons next to each exercise
+  - Implemented the ability to change exercise order during a workout
+  - Positioned reordering controls to the right of the exercise name
+  - Added proper disabled states when an exercise is at the top or bottom
+  - Included tooltips for better usability
+  - Maintained exercise IDs to preserve weight pre-filling functionality
+  - Ensured changes are immediately saved to localStorage
+  - Improved workout customization flexibility
+
+- Moved "Finish Workout" button to the bottom of the workout page
+  - Improved user experience by making the button more accessible
+  - Enlarged the "Finish Workout" button for better visibility
+  - Maintained consistent styling with other buttons
+  - Positioned it as the final action in the workout flow
+
+### Bug Fixes
+- Fixed multi-user workout completion issue
+  - Resolved bug where finishing one user's workout would close all active workouts
+  - Added unique ID generation for each workout when created
+  - Created deep copy of workout data before submission to prevent reference issues
+  - Updated finishWorkout function to only complete the selected workout
+  - Added user name to completion success message for clarity
+  - Only navigate away from the page if no workouts remain
+  - Improved the user experience for gym partners working out together
+  - Maintained proper workout ID tracking to ensure correct workouts are saved
+
 ## Planned Changes
 
 ### Branding
