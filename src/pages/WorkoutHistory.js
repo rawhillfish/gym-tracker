@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import apiService from '../services/api';
 import {
   Container,
@@ -30,13 +30,21 @@ import {
   DialogActions,
   Checkbox,
   Snackbar,
-  Alert
+  Alert,
+  ListItemText,
+  Chip,
+  OutlinedInput,
+  Popover,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
+import CloseIcon from '@mui/icons-material/Close';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import "../styles/calendar.css";
@@ -53,7 +61,8 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  ReferenceDot
 } from 'recharts';
 
 const WorkoutHistory = () => {
@@ -65,7 +74,26 @@ const WorkoutHistory = () => {
   const [chartMetric, setChartMetric] = useState('volume'); // 'volume' or 'maxWeight'
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [users, setUsers] = useState([]);
-
+  const [loading, setLoading] = useState(true);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editWorkout, setEditWorkout] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [workoutToDelete, setWorkoutToDelete] = useState(null);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  
+  // For chart tooltip
+  const [tooltipData, setTooltipData] = useState(null);
+  const [tooltipDialogOpen, setTooltipDialogOpen] = useState(false);
+  
+  // For compare mode
+  const [compareMode, setCompareMode] = useState(false);
+  const [comparePoints, setComparePoints] = useState([]);
+  const [compareDialogOpen, setCompareDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchWorkouts();
@@ -103,21 +131,17 @@ const WorkoutHistory = () => {
   const fetchUsers = async () => {
     try {
       const response = await apiService.getUsers();
-      console.log('Fetched users:', response.data);
-      setUsers(response.data);
+      const fetchedUsers = response.data;
+      setUsers(fetchedUsers);
+      
+      // Initialize selectedUsers with all user IDs
+      if (fetchedUsers.length > 0 && selectedUsers.length === 0) {
+        setSelectedUsers(fetchedUsers.map(user => user._id));
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
     }
   };
-  const [editWorkout, setEditWorkout] = useState(null);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [workoutToDelete, setWorkoutToDelete] = useState(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -281,45 +305,96 @@ const WorkoutHistory = () => {
 
   // Prepare chart data
   const chartData = useMemo(() => {
-    const data = [];
-    const sortedWorkouts = [...filteredWorkouts].sort((a, b) => 
-      new Date(a.startTime) - new Date(b.startTime)
-    );
-
-    sortedWorkouts.forEach(workout => {
+    // Group workouts by date
+    const dataByDate = new Map();
+    
+    filteredWorkouts.forEach(workout => {
       const date = format(parseISO(workout.startTime), 'MMM d');
-      const dataPoint = { date };
-
+      
+      if (!dataByDate.has(date)) {
+        dataByDate.set(date, {
+          date,
+          users: {}
+        });
+      }
+      
+      const dataPoint = dataByDate.get(date);
+      const userId = workout.user?._id || 'unknown';
+      
+      if (!dataPoint.users[userId]) {
+        dataPoint.users[userId] = {
+          userId,
+          name: workout.user?.name || 'Unknown User',
+          color: workout.user?.color || '#888888',
+          value: 0,
+          detailedBreakdown: []
+        };
+      }
+      
+      let value = 0;
+      const detailedBreakdown = [];
+      
       if (selectedExercise !== 'all') {
         const exercise = workout.exercises.find(ex => ex.name === selectedExercise);
         if (exercise) {
           if (chartMetric === 'volume') {
-            dataPoint.value = exercise.sets.reduce((total, set) => 
+            value = exercise.sets.reduce((total, set) => 
               total + (set.completed ? set.weight * set.reps : 0), 0
             );
+            
+            // Add detailed breakdown
+            exercise.sets.filter(set => set.completed).forEach((set, setIndex) => {
+              detailedBreakdown.push({
+                workoutName: workout.templateName,
+                exerciseName: exercise.name,
+                setNumber: setIndex + 1,
+                weight: set.weight,
+                reps: set.reps,
+                volume: set.weight * set.reps
+              });
+            });
           } else { // maxWeight
-            dataPoint.value = Math.max(...exercise.sets
+            value = Math.max(...exercise.sets
               .filter(set => set.completed)
-              .map(set => set.weight)
+              .map(set => set.weight), 0
             );
           }
         }
       } else {
         if (chartMetric === 'volume') {
-          dataPoint.value = calculateTotalVolume(workout.exercises);
-        } else {
-          dataPoint.value = Math.max(...workout.exercises.flatMap(ex =>
+          value = calculateTotalVolume(workout.exercises);
+          
+          // Add detailed breakdown for all exercises
+          workout.exercises.forEach(exercise => {
+            exercise.sets.filter(set => set.completed).forEach((set, setIndex) => {
+              detailedBreakdown.push({
+                workoutName: workout.templateName,
+                exerciseName: exercise.name,
+                setNumber: setIndex + 1,
+                weight: set.weight,
+                reps: set.reps,
+                volume: set.weight * set.reps
+              });
+            });
+          });
+        } else { // maxWeight
+          const weights = workout.exercises.flatMap(ex =>
             ex.sets.filter(set => set.completed).map(set => set.weight)
-          ));
+          );
+          value = weights.length > 0 ? Math.max(...weights) : 0;
         }
       }
       
-      if (dataPoint.value) {
-        data.push(dataPoint);
-      }
+      dataPoint.users[userId].value += value;
+      dataPoint.users[userId].detailedBreakdown.push(...detailedBreakdown);
     });
-
-    return data;
+    
+    // Sort by date
+    return Array.from(dataByDate.values()).sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateA - dateB;
+    });
   }, [filteredWorkouts, selectedExercise, chartMetric]);
 
   const exportWorkouts = () => {
@@ -345,6 +420,252 @@ const WorkoutHistory = () => {
       { type: 'application/json' }
     );
     saveAs(blob, `workout-history-${format(new Date(), 'yyyy-MM-dd')}.json`);
+  };
+
+  // Simple tooltip component that just shows the date and values
+  const SimpleTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div style={{ 
+          backgroundColor: '#fff', 
+          padding: '8px 12px', 
+          border: '1px solid #ccc',
+          borderRadius: '4px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          fontSize: '12px'
+        }}>
+          <p style={{ margin: '0 0 4px', fontWeight: 'bold' }}>{label}</p>
+          {payload.map((entry, index) => {
+            // Safely access nested properties with optional chaining
+            const userData = entry?.payload?.users?.[entry.dataKey?.split('.')[1]];
+            if (!userData) return null;
+            
+            return (
+              <p key={index} style={{ 
+                margin: '2px 0', 
+                color: userData.color || entry.color
+              }}>
+                {userData.name}: {userData.value} {chartMetric === 'volume' ? 'kg' : 'kg'}
+              </p>
+            );
+          })}
+          <p style={{ 
+            margin: '4px 0 0', 
+            fontSize: '11px', 
+            fontStyle: 'italic',
+            textAlign: 'center',
+            color: '#666'
+          }}>
+            {compareMode 
+              ? comparePoints.length === 0 
+                ? 'Click to select first point' 
+                : comparePoints.length === 1 
+                  ? 'Click to select second point' 
+                  : 'Two points selected'
+              : 'Click on dot for details'
+            }
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Detailed tooltip content for the dialog
+  const DetailedTooltipContent = ({ payload, label }) => {
+    if (!payload || !payload.length) return null;
+    
+    return (
+      <div style={{ 
+        padding: '0 16px 16px', 
+        maxWidth: '100%',
+        fontSize: '14px',
+        lineHeight: '1.5',
+        maxHeight: '70vh',
+        overflowY: 'auto'
+      }}>
+        {payload.map((entry, index) => {
+          // Safely access nested properties with optional chaining
+          const userData = entry?.payload?.users?.[entry.dataKey?.split('.')[1]];
+          if (!userData) return null;
+          
+          return (
+            <div key={index} style={{ 
+              marginBottom: '16px',
+              padding: '10px',
+              backgroundColor: `${userData.color}10`,
+              border: `1px solid ${userData.color}33`,
+              borderRadius: '6px'
+            }}>
+              <p style={{ 
+                margin: '0 0 8px', 
+                fontWeight: 'bold',
+                fontSize: '15px',
+                color: userData.color || entry.color,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <span>{userData.name}</span>
+                <span>{userData.value} {chartMetric === 'volume' ? 'kg (total volume)' : 'kg (max weight)'}</span>
+              </p>
+              
+              {chartMetric === 'volume' && userData.detailedBreakdown && userData.detailedBreakdown.length > 0 && (
+                <div style={{ marginTop: '8px' }}>
+                  <p style={{ 
+                    margin: '5px 0 10px', 
+                    fontWeight: 'bold', 
+                    borderBottom: '1px solid #eee', 
+                    paddingBottom: '5px'
+                  }}>
+                    Breakdown:
+                  </p>
+                  
+                  {/* Group by workout name */}
+                  {Object.entries(
+                    userData.detailedBreakdown.reduce((acc, item) => {
+                      if (!acc[item.workoutName]) {
+                        acc[item.workoutName] = [];
+                      }
+                      acc[item.workoutName].push(item);
+                      return acc;
+                    }, {})
+                  ).map(([workoutName, items], wIndex) => (
+                    <div key={wIndex} style={{ 
+                      margin: '0 0 12px',
+                      padding: '8px',
+                      backgroundColor: 'rgba(255,255,255,0.7)',
+                      borderRadius: '4px'
+                    }}>
+                      <div style={{ 
+                        fontWeight: 'bold', 
+                        marginBottom: '6px',
+                        color: '#555',
+                        fontSize: '14px'
+                      }}>
+                        {workoutName}
+                      </div>
+                      
+                      {/* Group by exercise name */}
+                      {Object.entries(
+                        items.reduce((acc, item) => {
+                          if (!acc[item.exerciseName]) {
+                            acc[item.exerciseName] = [];
+                          }
+                          acc[item.exerciseName].push(item);
+                          return acc;
+                        }, {})
+                      ).map(([exerciseName, sets], eIndex) => (
+                        <div key={eIndex} style={{ marginBottom: '8px' }}>
+                          <div style={{ 
+                            fontWeight: 'bold', 
+                            marginBottom: '4px',
+                            fontSize: '13px'
+                          }}>
+                            {exerciseName}
+                          </div>
+                          <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: '40px 80px 80px 80px',
+                            fontSize: '12px',
+                            color: '#666',
+                            marginBottom: '4px',
+                            fontWeight: 'bold'
+                          }}>
+                            <div>Set</div>
+                            <div>Weight</div>
+                            <div>Reps</div>
+                            <div>Volume</div>
+                          </div>
+                          {sets.map((set, sIndex) => (
+                            <div key={sIndex} style={{ 
+                              display: 'grid', 
+                              gridTemplateColumns: '40px 80px 80px 80px',
+                              fontSize: '12px'
+                            }}>
+                              <div>{set.setNumber}</div>
+                              <div>{set.weight} kg</div>
+                              <div>{set.reps} reps</div>
+                              <div>{set.volume} kg</div>
+                            </div>
+                          ))}
+                          <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: '40px 80px 80px 80px',
+                            fontSize: '12px',
+                            borderTop: '1px solid #eee',
+                            paddingTop: '4px',
+                            marginTop: '4px',
+                            fontWeight: 'bold'
+                          }}>
+                            <div>Total</div>
+                            <div></div>
+                            <div></div>
+                            <div>{sets.reduce((sum, set) => sum + set.volume, 0)} kg</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Handle chart click
+  const handleChartClick = useCallback((data) => {
+    if (!data || !data.activePayload || !data.activePayload.length) return;
+    
+    console.log('Chart clicked:', data);
+    
+    const clickedData = data.activePayload[0].payload;
+    console.log('Clicked data:', clickedData);
+    
+    if (compareMode) {
+      // In compare mode, collect points
+      if (comparePoints.length < 2) {
+        // Check if this point is already selected
+        const isDuplicate = comparePoints.some(point => point.date === clickedData.date);
+        if (!isDuplicate) {
+          setComparePoints(prev => [...prev, clickedData]);
+        }
+        
+        // If we now have 2 points, open the compare dialog
+        if (comparePoints.length === 1 && !isDuplicate) {
+          setCompareDialogOpen(true);
+        }
+      }
+    } else {
+      // Normal mode - show details for single point
+      setTooltipData({
+        payload: clickedData,
+        label: clickedData.date
+      });
+      setTooltipDialogOpen(true);
+    }
+  }, [compareMode, comparePoints]);
+  
+  // Toggle compare mode
+  const handleToggleCompareMode = () => {
+    setCompareMode(prev => !prev);
+    // Reset compare points when toggling
+    setComparePoints([]);
+    setCompareDialogOpen(false);
+  };
+  
+  // Reset compare selection
+  const handleResetCompare = () => {
+    setComparePoints([]);
+    setCompareDialogOpen(false);
+  };
+
+  // Handle user selection change
+  const handleUserSelectionChange = (event) => {
+    setSelectedUsers(event.target.value);
   };
 
   return (
@@ -502,34 +823,285 @@ const WorkoutHistory = () => {
             <Typography variant="h6">
               Progress Chart
             </Typography>
-            <FormControl sx={{ minWidth: 120 }}>
-              <Select
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              {/* Compare mode toggle */}
+              <ToggleButton
+                value="compare"
+                selected={compareMode}
+                onChange={handleToggleCompareMode}
                 size="small"
-                value={chartMetric}
-                onChange={(e) => setChartMetric(e.target.value)}
+                color="primary"
+                sx={{ 
+                  borderRadius: '4px', 
+                  height: '40px',
+                  border: compareMode ? '1px solid #1976d2' : '1px solid rgba(0, 0, 0, 0.23)',
+                  backgroundColor: compareMode ? 'rgba(25, 118, 210, 0.08)' : 'transparent'
+                }}
               >
-                <MenuItem value="volume">Total Volume</MenuItem>
-                <MenuItem value="maxWeight">Max Weight</MenuItem>
-              </Select>
-            </FormControl>
+                <CompareArrowsIcon fontSize="small" sx={{ mr: 0.5 }} />
+                Compare
+              </ToggleButton>
+              
+              {/* User selection */}
+              <FormControl sx={{ minWidth: 200 }}>
+                <InputLabel id="user-select-label" size="small">Users</InputLabel>
+                <Select
+                  labelId="user-select-label"
+                  id="user-select"
+                  multiple
+                  size="small"
+                  value={selectedUsers}
+                  onChange={handleUserSelectionChange}
+                  input={<OutlinedInput label="Users" />}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.map((userId) => {
+                        const user = users.find(u => u._id === userId);
+                        return user ? (
+                          <Chip 
+                            key={userId} 
+                            label={user.name} 
+                            size="small" 
+                            style={{ 
+                              backgroundColor: `${user.color}33`,
+                              borderColor: user.color,
+                              borderWidth: '1px',
+                              borderStyle: 'solid'
+                            }}
+                          />
+                        ) : null;
+                      })}
+                    </Box>
+                  )}
+                >
+                  {users.map((user) => (
+                    <MenuItem key={user._id} value={user._id}>
+                      <Checkbox checked={selectedUsers.indexOf(user._id) > -1} />
+                      <ListItemText 
+                        primary={user.name} 
+                        primaryTypographyProps={{
+                          style: { color: user.color }
+                        }}
+                      />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              {/* Metric selection */}
+              <FormControl sx={{ minWidth: 120 }}>
+                <InputLabel id="metric-select-label" size="small">Metric</InputLabel>
+                <Select
+                  labelId="metric-select-label"
+                  id="metric-select"
+                  size="small"
+                  value={chartMetric}
+                  onChange={(e) => setChartMetric(e.target.value)}
+                  label="Metric"
+                >
+                  <MenuItem value="volume">Total Volume</MenuItem>
+                  <MenuItem value="maxWeight">Max Weight</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
           </Box>
+          
+          {/* Compare mode indicator */}
+          {compareMode && (
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              mb: 2, 
+              p: 1, 
+              backgroundColor: 'rgba(25, 118, 210, 0.08)',
+              borderRadius: '4px',
+              border: '1px solid rgba(25, 118, 210, 0.23)'
+            }}>
+              <Typography variant="body2" sx={{ flex: 1, color: 'primary.main' }}>
+                Compare Mode: {comparePoints.length === 0 
+                  ? 'Select first data point' 
+                  : comparePoints.length === 1 
+                    ? `First point selected (${comparePoints[0].date}). Select second point.` 
+                    : `Comparing ${comparePoints[0].date} with ${comparePoints[1].date}`}
+              </Typography>
+              <Button 
+                size="small" 
+                variant="outlined" 
+                color="primary" 
+                onClick={handleResetCompare}
+                startIcon={<CloseIcon />}
+              >
+                Reset
+              </Button>
+            </Box>
+          )}
+          
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <LineChart 
+              data={chartData} 
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              onClick={handleChartClick}
+            >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip />
+              <Tooltip content={<SimpleTooltip />} />
               <Legend />
-              <Line
-                type="monotone"
-                dataKey="value"
-                name={chartMetric === 'volume' ? 'Volume (kg)' : 'Max Weight (kg)'}
-                stroke="#8884d8"
-                strokeWidth={2}
-                dot={{ r: 4 }}
-              />
+              
+              {/* Render a line for each selected user */}
+              {users
+                .filter(user => selectedUsers.includes(user._id))
+                .map((user, index) => (
+                  <Line
+                    key={user._id}
+                    type="monotone"
+                    dataKey={`users.${user._id}.value`}
+                    name={user.name}
+                    stroke={user.color || `#${Math.floor(Math.random()*16777215).toString(16)}`}
+                    strokeWidth={2}
+                    dot={{ r: 5, style: { cursor: 'pointer' } }}
+                    activeDot={{ r: 8, style: { cursor: 'pointer' } }}
+                    connectNulls={true}
+                  />
+                ))}
+                
+              {/* Highlight selected compare points */}
+              {comparePoints.map((point, index) => (
+                <ReferenceDot
+                  key={`ref-dot-${index}`}
+                  x={point.date}
+                  y={Object.values(point.users).find(u => selectedUsers.includes(u.userId))?.value || 0}
+                  r={10}
+                  fill="rgba(255, 0, 0, 0.3)"
+                  stroke="red"
+                />
+              ))}
             </LineChart>
           </ResponsiveContainer>
+          
+          {/* Dialog for detailed tooltip */}
+          <Dialog
+            open={tooltipDialogOpen}
+            onClose={() => {
+              console.log('Closing dialog');
+              setTooltipDialogOpen(false);
+            }}
+            maxWidth="md"
+            PaperProps={{
+              style: { 
+                minWidth: '500px',
+                maxWidth: '90vw'
+              }
+            }}
+          >
+            <DialogTitle>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6">
+                  {tooltipData?.label || 'Workout Details'}
+                </Typography>
+                <Button 
+                  onClick={() => setTooltipDialogOpen(false)}
+                  size="small"
+                >
+                  Close
+                </Button>
+              </Box>
+            </DialogTitle>
+            <DialogContent dividers>
+              {tooltipData && tooltipData.payload && (
+                <DetailedTooltipContent 
+                  payload={Object.entries(tooltipData.payload.users || {})
+                    .filter(([userId]) => selectedUsers.includes(userId))
+                    .map(([userId, userData]) => ({
+                      dataKey: `users.${userId}.value`,
+                      payload: tooltipData.payload
+                    }))}
+                  label={tooltipData.label}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
+          
+          {/* Compare Dialog */}
+          <Dialog
+            open={compareDialogOpen}
+            onClose={() => setCompareDialogOpen(false)}
+            maxWidth="lg"
+            fullWidth
+            PaperProps={{
+              style: { 
+                maxWidth: '95vw',
+                maxHeight: '90vh'
+              }
+            }}
+          >
+            <DialogTitle>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6">
+                  Comparing Workouts
+                </Typography>
+                <Button 
+                  onClick={() => setCompareDialogOpen(false)}
+                  size="small"
+                >
+                  Close
+                </Button>
+              </Box>
+            </DialogTitle>
+            <DialogContent dividers>
+              {comparePoints.length === 2 ? (
+                <Grid container spacing={2}>
+                  {/* First point */}
+                  <Grid item xs={12} md={6}>
+                    <Paper elevation={1} sx={{ p: 2, height: '100%' }}>
+                      <Typography variant="h6" gutterBottom sx={{ borderBottom: '1px solid #eee', pb: 1 }}>
+                        {comparePoints[0].date}
+                      </Typography>
+                      <DetailedTooltipContent 
+                        payload={Object.entries(comparePoints[0].users || {})
+                          .filter(([userId]) => selectedUsers.includes(userId))
+                          .map(([userId, userData]) => ({
+                            dataKey: `users.${userId}.value`,
+                            payload: comparePoints[0]
+                          }))}
+                        label={comparePoints[0].date}
+                      />
+                    </Paper>
+                  </Grid>
+                  
+                  {/* Second point */}
+                  <Grid item xs={12} md={6}>
+                    <Paper elevation={1} sx={{ p: 2, height: '100%' }}>
+                      <Typography variant="h6" gutterBottom sx={{ borderBottom: '1px solid #eee', pb: 1 }}>
+                        {comparePoints[1].date}
+                      </Typography>
+                      <DetailedTooltipContent 
+                        payload={Object.entries(comparePoints[1].users || {})
+                          .filter(([userId]) => selectedUsers.includes(userId))
+                          .map(([userId, userData]) => ({
+                            dataKey: `users.${userId}.value`,
+                            payload: comparePoints[1]
+                          }))}
+                        label={comparePoints[1].date}
+                      />
+                    </Paper>
+                  </Grid>
+                </Grid>
+              ) : (
+                <Typography variant="body1" align="center" sx={{ py: 4 }}>
+                  Please select two data points to compare.
+                </Typography>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleResetCompare} color="primary">
+                Reset Selection
+              </Button>
+              <Button onClick={() => setCompareDialogOpen(false)} color="primary">
+                Close
+              </Button>
+            </DialogActions>
+          </Dialog>
         </Paper>
       )}
 

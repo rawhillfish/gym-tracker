@@ -301,6 +301,94 @@ This document tracks all significant changes made to the Gym Tracker application
   - Improved the user experience for gym partners working out together
   - Maintained proper workout ID tracking to ensure correct workouts are saved
 
+## 2025-05-07
+
+### Development and Testing Tools
+- Added script to populate database with completed workouts
+  - Created `populate-completed-workouts.js` script in the server/scripts directory
+  - Generates 10 completed workouts for each template (40 total)
+  - Distributes workouts over the last 6 months with random dates
+  - Assigns workouts to different users in the system
+  - Generates realistic workout durations (30-90 minutes)
+  - Creates sets with realistic weights based on exercise type
+  - Preserves template IDs and exercise IDs for weight pre-filling functionality
+  - Added documentation in README-POPULATE-WORKOUTS.md
+
+## 2025-05-08
+
+### User Interface Improvements
+- Enhanced Workout History calendar display
+  - Moved the calendar to its own full-width container for better visibility
+  - Increased the size of the calendar to make it more prominent
+  - Added custom styling for better readability and visual appeal
+  - Improved the calendar navigation buttons and day display
+  - Enhanced the workout indicator dots for better visibility
+  - Centered the calendar on the page for better focus
+  - Added more padding and spacing for a cleaner look
+  - Created dedicated enhanced-calendar.css for specialized calendar styling
+
+- Improved calendar workout indicators
+  - Implemented colored backgrounds for dates with workouts
+  - Created diagonal split backgrounds for days with multiple users
+  - Used semi-transparent colors to ensure date numbers remain visible
+  - Enhanced date number styling with subtle background and shadow
+  - Made all date numbers a consistent black color for better readability
+  - Used color-coding to match user colors from their profiles
+  - Added tooltips showing user name and workout template
+  - Created smooth transitions for hover effects
+  - Enhanced the overall aesthetic of the calendar
+  - Improved active day styling with subtle background and outline
+
+## 2025-05-09
+
+### Feature Enhancements
+
+- Enhanced workout export functionality
+  - Added templateId and exerciseId fields to exported workout data
+  - These IDs are critical for the weight pre-filling functionality when importing
+  - Added metadata section to export file with version, date, and description
+  - Improved the structure of exported data for better readability and usability
+  - Included user information (ID, name, color) in the exported data
+  - Added workout IDs for reference and tracking purposes
+
+- Enhanced progress chart tooltip
+  - Added detailed breakdown of sets, reps, and weights that contribute to the total volume
+  - Shows each exercise name, set number, weight, reps, and individual set volume
+  - Includes workout name and user name for better context
+  - Improved tooltip styling with scrollable content for workouts with many sets
+  - Maintains a clean interface while providing detailed information on hover
+  - Redesigned with a larger, more readable format with improved organization
+  - Implemented a tabular layout for set data with column headers
+  - Added subtotals for each exercise and workout
+  - Grouped data by workout and exercise for better readability
+  - Color-coded user sections to match their profile colors
+  - Implemented a click-on-dot interaction system for better user experience
+  - Simple hover tooltip shows basic information with "Click on dot for details" instruction
+  - Clicking on a data point opens a full-screen dialog with detailed breakdown
+  - The dialog stays open until explicitly closed, allowing for easy scrolling and interaction
+
+- Multi-user progress chart
+  - Added separate lines for each user on the progress chart
+  - Each user's line uses their profile color for easy identification
+  - Enhanced tooltip shows data for all users on a specific date
+  - Detailed breakdown now includes workout name for better context
+  - Improved data organization to compare progress between users
+  - Supports both volume and max weight metrics for all users
+  - Added multi-select dropdown to toggle users on and off
+  - User chips in the selection dropdown match their profile colors
+  - Improved UI layout with properly labeled selection controls
+
+- Workout comparison feature
+  - Added a "Compare" toggle button to enable comparison mode
+  - Allows selecting two different data points on the progress chart
+  - Selected points are highlighted with red circles for visibility
+  - Opens a side-by-side comparison dialog showing detailed workout information
+  - Each side displays the complete breakdown of sets, reps, and weights
+  - Helps users track progress between different workout sessions
+  - Includes a status indicator showing which points are selected
+  - Provides a reset button to clear the current selection
+  - Works seamlessly with the multi-user feature to compare across users
+
 ## Planned Changes
 
 ### Branding

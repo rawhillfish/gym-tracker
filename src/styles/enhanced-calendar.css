@@ -1,0 +1,137 @@
+/* Enhanced Calendar Styles */
+.react-calendar {
+  width: 100%;
+  max-width: 100%;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.5em;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.react-calendar__navigation {
+  display: flex;
+  height: 60px;
+  margin-bottom: 1em;
+}
+
+.react-calendar__navigation button {
+  min-width: 44px;
+  background: none;
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #1976d2;
+}
+
+.react-calendar__month-view__weekdays {
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 1rem;
+  padding: 12px 0;
+  color: #1976d2;
+}
+
+.react-calendar__tile {
+  max-width: 100%;
+  padding: 10px;
+  background: none;
+  text-align: center;
+  line-height: 16px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  height: 80px;
+}
+
+.react-calendar__tile--now {
+  background: rgba(255, 255, 118, 0.3);
+  border-radius: 4px;
+}
+
+.react-calendar__tile--active {
+  background: rgba(25, 118, 210, 0.15);
+  border-radius: 4px;
+}
+
+/* Active day outline */
+.react-calendar__tile--active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 2px solid #1976d2;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* Day number styling - consistent for all days */
+.react-calendar__tile abbr {
+  font-size: 1.1rem;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 8px;
+  position: relative;
+  z-index: 2;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 2px 6px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: #000000 !important; /* Force black color for all dates */
+}
+
+/* Ensure active day numbers are also black */
+.react-calendar__tile--active abbr,
+.react-calendar__tile--now abbr,
+.react-calendar__month-view__days__day--weekend abbr {
+  color: #000000 !important;
+}
+
+/* Workout tile styling */
+.workout-tile {
+  position: relative;
+  overflow: visible;
+}
+
+/* Workout date background styling */
+.workout-date {
+  border-radius: 4px;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Improve active day styling */
+.react-calendar__tile--active .workout-date {
+  opacity: 0.7;
+}
+
+/* Improve hover effect on calendar tiles */
+.react-calendar__tile:enabled:hover,
+.react-calendar__tile:enabled:focus {
+  background-color: rgba(227, 242, 253, 0.7);
+  border-radius: 4px;
+}
+
+/* Make date text more visible on colored backgrounds */
+.workout-tile abbr {
+  font-weight: 700;
+  text-shadow: 
+    0 0 1px white,
+    0 0 2px white,
+    0 0 3px white,
+    0 0 4px white;
+}
+
+/* Weekend days styling */
+.react-calendar__month-view__days__day--weekend {
+  color: #000000;
+}
+
+/* Neighboring month days styling */
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: #757575;
+}
