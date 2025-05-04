@@ -1,137 +1,249 @@
-/* Enhanced Calendar Styles */
+/* Enhanced Calendar Styles - Modern Design */
 .react-calendar {
   width: 100%;
   max-width: 100%;
   background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-family: Arial, Helvetica, sans-serif;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
   line-height: 1.5em;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  padding: 16px;
 }
 
+/* Ensure tiles maintain proper sizing when scaled */
+.react-calendar__month-view__days__day {
+  max-width: 14.2857%;
+  flex-basis: 14.2857%;
+  aspect-ratio: 1;
+}
+
+/* Center the navigation container */
 .react-calendar__navigation {
-  display: flex;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
   height: 60px;
-  margin-bottom: 1em;
+  margin-bottom: 1.5em;
+  width: 100%;
+  text-align: center !important;
 }
 
+/* Force equal width on all navigation buttons */
 .react-calendar__navigation button {
   min-width: 44px;
   background: none;
-  font-size: 1.4rem;
-  font-weight: bold;
+  font-size: 1.2rem;
+  font-weight: 500;
   color: #1976d2;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  transition: background-color 0.2s, color 0.2s;
+  margin: 0 4px;
+  flex: 0 1 auto !important;
+  width: auto !important;
+}
+
+/* Style the navigation label (month/year) */
+.react-calendar__navigation__label {
+  flex: 0 1 auto !important;
+  width: auto !important;
+  max-width: 180px !important;
+  font-weight: 600 !important;
+  font-size: 1.3rem !important;
+}
+
+/* Adjust the arrow buttons */
+.react-calendar__navigation__arrow {
+  flex: 0 1 auto !important;
+  width: 40px !important;
+}
+
+/* Fix the navigation layout */
+.react-calendar__navigation__prev2-button,
+.react-calendar__navigation__prev-button,
+.react-calendar__navigation__next-button,
+.react-calendar__navigation__next2-button {
+  display: inline-block !important;
+  width: 40px !important;
+}
+
+.react-calendar__navigation button:hover {
+  background-color: #f5f5f5;
+}
+
+.react-calendar__navigation button:disabled {
+  opacity: 0.5;
 }
 
 .react-calendar__month-view__weekdays {
   text-align: center;
   text-transform: uppercase;
-  font-weight: bold;
-  font-size: 1rem;
-  padding: 12px 0;
-  color: #1976d2;
+  font-weight: 500;
+  font-size: 0.8rem;
+  padding: 8px 0;
+  color: #757575;
+  margin-bottom: 8px;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  padding: 8px;
 }
 
 .react-calendar__tile {
   max-width: 100%;
-  padding: 10px;
+  padding: 16px 6px;
   background: none;
   text-align: center;
   line-height: 16px;
-  position: relative;
+  font-size: 1rem;
+  height: auto;
   display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: center;
-  height: 80px;
+  position: relative;
+  color: #333;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.react-calendar__tile:hover {
+  background-color: #f5f5f5;
 }
 
 .react-calendar__tile--now {
-  background: rgba(255, 255, 118, 0.3);
-  border-radius: 4px;
+  background-color: rgba(25, 118, 210, 0.1);
 }
 
 .react-calendar__tile--active {
-  background: rgba(25, 118, 210, 0.15);
-  border-radius: 4px;
+  background-color: #1976d2;
+  color: white;
 }
 
-/* Active day outline */
-.react-calendar__tile--active::before {
+.react-calendar__tile--active:hover {
+  background-color: #1565c0;
+}
+
+/* Day number styling - consistent for all days */
+.react-calendar__month-view__days__day abbr {
+  position: relative;
+  z-index: 1;
+  color: #333;
+  font-weight: 500;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
+  border-radius: 50%;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* Active day styling */
+.react-calendar__tile--active abbr {
+  background-color: #1976d2;
+  color: white;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.4);
+}
+
+/* Today styling */
+.react-calendar__tile--now abbr {
+  border: 2px solid #1976d2;
+}
+
+/* Workout tile styling */
+.workout-tile {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  z-index: 0;
+  border-radius: 10px;
+  opacity: 0.85;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+/* Add a subtle border to workout tiles */
+.react-calendar__month-view__days__day.has-workout .workout-tile::after {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  border: 2px solid #1976d2;
-  border-radius: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   pointer-events: none;
 }
 
-/* Day number styling - consistent for all days */
-.react-calendar__tile abbr {
-  font-size: 1.1rem;
-  font-weight: bold;
-  display: block;
-  margin-bottom: 8px;
-  position: relative;
-  z-index: 2;
-  background-color: rgba(255, 255, 255, 0.7);
-  padding: 2px 6px;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  color: #000000 !important; /* Force black color for all dates */
+/* Hover effect for workout tiles */
+.react-calendar__month-view__days__day.has-workout:hover .workout-tile {
+  opacity: 0.95;
+  transform: scale(1.03);
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Ensure active day numbers are also black */
-.react-calendar__tile--active abbr,
-.react-calendar__tile--now abbr,
+/* Add a small dot indicator at the bottom of workout tiles */
+.workout-tile::before {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  background-color: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Make sure the day number is above the workout tile */
+.react-calendar__tile {
+  position: relative;
+}
+
+/* Add some padding to the calendar tile to make sure the workout color doesn't touch the edges */
+.react-calendar__month-view__days__day.has-workout {
+  padding: 0;
+}
+
+/* Make weekend numbers black like weekdays */
 .react-calendar__month-view__days__day--weekend abbr {
-  color: #000000 !important;
+  color: #333;
 }
 
-/* Workout tile styling */
-.workout-tile {
-  position: relative;
-  overflow: visible;
-}
-
-/* Workout date background styling */
-.workout-date {
-  border-radius: 4px;
-  transition: all 0.2s ease-in-out;
-}
-
-/* Improve active day styling */
-.react-calendar__tile--active .workout-date {
-  opacity: 0.7;
-}
-
-/* Improve hover effect on calendar tiles */
-.react-calendar__tile:enabled:hover,
-.react-calendar__tile:enabled:focus {
-  background-color: rgba(227, 242, 253, 0.7);
-  border-radius: 4px;
-}
-
-/* Make date text more visible on colored backgrounds */
-.workout-tile abbr {
-  font-weight: 700;
-  text-shadow: 
-    0 0 1px white,
-    0 0 2px white,
-    0 0 3px white,
-    0 0 4px white;
-}
-
-/* Weekend days styling */
+/* Override any other styles that might change weekend colors */
 .react-calendar__month-view__days__day--weekend {
-  color: #000000;
+  color: #333;
+}
+
+/* Ensure active weekend days also have black text */
+.react-calendar__tile--active.react-calendar__month-view__days__day--weekend,
+.react-calendar__tile--active.react-calendar__month-view__days__day--weekend abbr {
+  color: white;
+  background-color: #1976d2;
 }
 
 /* Neighboring month days styling */
 .react-calendar__month-view__days__day--neighboringMonth {
-  color: #757575;
+  opacity: 0.5;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .react-calendar__tile {
+    padding: 12px 4px;
+  }
+  
+  .react-calendar__month-view__days__day abbr {
+    width: 24px;
+    height: 24px;
+    font-size: 0.9rem;
+  }
 }

@@ -685,135 +685,179 @@ const WorkoutHistory = () => {
         </Button>
       </Box>
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={4}>
-          <Paper elevation={2} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h6" gutterBottom>Calendar View</Typography>
-            <Calendar
-              value={selectedDate}
-              onChange={setSelectedDate}
-              tileClassName="calendar-tile"
-              tileContent={({ date, view }) => {
-                if (view !== 'month') return null;
-                
-                const workoutsOnDate = workoutHistory.filter(workout =>
-                  isSameDay(parseISO(workout.startTime), date)
-                );
-                
-                if (workoutsOnDate.length > 0) {
-                  // Get unique users who worked out on this date
-                  const uniqueWorkoutsByUser = workoutsOnDate.reduce((acc, workout) => {
-                    if (!acc[workout.user._id]) {
-                      acc[workout.user._id] = workout;
-                    }
-                    return acc;
-                  }, {});
-                  
-                  const uniqueUsers = Object.values(uniqueWorkoutsByUser);
-                  console.log('Date:', date.toISOString(), 'Unique users:', uniqueUsers.length);
-                  
-                  let backgroundStyle = '';
-                  const userNames = [];
-                  
-                  if (uniqueUsers.length === 1) {
-                    backgroundStyle = uniqueUsers[0].user.color;
-                    userNames.push(uniqueUsers[0].user.name);
-                  } else if (uniqueUsers.length === 2) {
-                    console.log('Two users found:', {
-                      user1: uniqueUsers[0].user,
-                      user2: uniqueUsers[1].user
-                    });
-                    
-                    const color1 = uniqueUsers[0].user.color;
-                    const color2 = uniqueUsers[1].user.color;
-                    backgroundStyle = `linear-gradient(90deg, ${color1} 0%, ${color1} 50%, ${color2} 50%, ${color2} 100%)`;
-                    uniqueUsers.forEach(workout => {
-                      userNames.push(workout.user.name);
-                    });
-                  } else if (uniqueUsers.length > 2) {
-                    const colors = uniqueUsers.slice(0, 3).map(workout => workout.user.color);
-                    backgroundStyle = `linear-gradient(45deg, ${colors[0]} 0%, ${colors[0]} 33.33%, ${colors[1]} 33.33%, ${colors[1]} 66.66%, ${colors[2]} 66.66%, ${colors[2]} 100%)`;
-                    uniqueUsers.slice(0, 3).forEach(workout => {
-                      userNames.push(workout.user.name);
-                    });
+      {/* Calendar View - Moved to top and made larger */}
+      <Paper elevation={3} sx={{ p: 2, mb: 4, borderRadius: '16px', overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 500, color: '#1976d2' }}>Calendar View</Typography>
+        </Box>
+        <Box sx={{ 
+          '& .react-calendar': { 
+            width: '100%', 
+            height: 'auto', 
+            transform: 'scale(1)', 
+            transformOrigin: 'top center', 
+            marginBottom: '1rem',
+            maxWidth: '100%',
+            '& button': {
+              maxWidth: '14.2%'  // 100% / 7 days
+            }
+          },
+          '& .react-calendar__navigation': {
+            display: 'flex',
+            justifyContent: 'center',
+            width: '100%',
+            '& > div': {
+              display: 'flex',
+              justifyContent: 'center',
+              width: '100%'
+            }
+          },
+          overflow: 'visible'
+        }}>
+          <Calendar
+            value={selectedDate}
+            onChange={setSelectedDate}
+            tileClassName={({ date, view }) => {
+              if (view !== 'month') return null;
+              
+              const workoutsOnDate = workoutHistory.filter(workout =>
+                isSameDay(parseISO(workout.startTime), date)
+              );
+              
+              return workoutsOnDate.length > 0 ? 'has-workout' : null;
+            }}
+            onClickDay={(value) => {
+              setSelectedDate(value);
+              setStartDate(value);
+              setEndDate(value);
+            }}
+            tileContent={({ date, view }) => {
+              if (view !== 'month') return null;
+              
+              const workoutsOnDate = workoutHistory.filter(workout =>
+                isSameDay(parseISO(workout.startTime), date)
+              );
+              
+              if (workoutsOnDate.length > 0) {
+                // Get unique users who worked out on this date
+                const uniqueWorkoutsByUser = workoutsOnDate.reduce((acc, workout) => {
+                  if (!acc[workout.user._id]) {
+                    acc[workout.user._id] = workout;
                   }
+                  return acc;
+                }, {});
+                
+                const uniqueUsers = Object.values(uniqueWorkoutsByUser);
+                console.log('Date:', date.toISOString(), 'Unique users:', uniqueUsers.length);
+                
+                let backgroundStyle = '';
+                const userNames = [];
+                
+                if (uniqueUsers.length === 1) {
+                  backgroundStyle = uniqueUsers[0].user.color;
+                  userNames.push(uniqueUsers[0].user.name);
+                } else if (uniqueUsers.length === 2) {
+                  console.log('Two users found:', {
+                    user1: uniqueUsers[0].user,
+                    user2: uniqueUsers[1].user
+                  });
                   
-                  console.log('Background style:', backgroundStyle);
-                  
-                  return (
+                  const color1 = uniqueUsers[0].user.color;
+                  const color2 = uniqueUsers[1].user.color;
+                  backgroundStyle = `linear-gradient(135deg, ${color1} 0%, ${color1} 50%, ${color2} 50%, ${color2} 100%)`;
+                  uniqueUsers.forEach(workout => {
+                    userNames.push(workout.user.name);
+                  });
+                } else if (uniqueUsers.length > 2) {
+                  const colors = uniqueUsers.slice(0, 3).map(workout => workout.user.color);
+                  backgroundStyle = `linear-gradient(135deg, ${colors[0]} 0%, ${colors[0]} 33.33%, ${colors[1]} 33.33%, ${colors[1]} 66.66%, ${colors[2]} 66.66%, ${colors[2]} 100%)`;
+                  uniqueUsers.slice(0, 3).forEach(workout => {
+                    userNames.push(workout.user.name);
+                  });
+                }
+                
+                console.log('Background style:', backgroundStyle);
+                
+                return (
+                  <>
                     <div 
                       className="workout-tile"
                       style={{ background: backgroundStyle }}
                       title={userNames.join(', ')}
-                    />
-                  );
-                }
-                return null;
-              }}
-              onClickDay={(value) => {
-                setSelectedDate(value);
-                setStartDate(value);
-                setEndDate(value);
-              }}
-            />
-          </Paper>
+                    >
+                      {/* Small user indicator */}
+                      <div className="user-indicator" style={{ 
+                        position: 'absolute', 
+                        bottom: '4px', 
+                        right: '4px',
+                        fontSize: '10px',
+                        color: 'white',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                        fontWeight: 'bold'
+                      }}>
+                        {uniqueUsers.length}
+                      </div>
+                    </div>
+                  </>
+                );
+              }
+              return null;
+            }}
+          />
+        </Box>
+      </Paper>
+
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <TextField
+            fullWidth
+            label="Search Workouts"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
         </Grid>
-        <Grid item xs={12} md={8}>
-          <Paper elevation={2} sx={{ p: 3, height: '100%' }}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField
-                  fullWidth
-                  label="Search Workouts"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <DatePicker
-                  selected={startDate}
-                  onChange={setStartDate}
-                  placeholderText="Start Date"
-                  className="MuiInputBase-input MuiOutlinedInput-input"
-                  wrapperClassName="datePicker"
-                  dateFormat="MMMM d, yyyy"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <DatePicker
-                  selected={endDate}
-                  onChange={setEndDate}
-                  placeholderText="End Date"
-                  className="MuiInputBase-input MuiOutlinedInput-input"
-                  wrapperClassName="datePicker"
-                  dateFormat="MMMM d, yyyy"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <FormControl fullWidth>
-                  <InputLabel>Exercise</InputLabel>
-                  <Select
-                    value={selectedExercise}
-                    onChange={(e) => setSelectedExercise(e.target.value)}
-                    label="Exercise"
-                  >
-                    {uniqueExercises.map(exercise => (
-                      <MenuItem key={exercise} value={exercise}>
-                        {exercise === 'all' ? 'All Exercises' : exercise}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </Paper>
+        <Grid item xs={12} sm={6} md={3}>
+          <DatePicker
+            selected={startDate}
+            onChange={setStartDate}
+            placeholderText="Start Date"
+            className="MuiInputBase-input MuiOutlinedInput-input"
+            wrapperClassName="datePicker"
+            dateFormat="MMMM d, yyyy"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <DatePicker
+            selected={endDate}
+            onChange={setEndDate}
+            placeholderText="End Date"
+            className="MuiInputBase-input MuiOutlinedInput-input"
+            wrapperClassName="datePicker"
+            dateFormat="MMMM d, yyyy"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <FormControl fullWidth>
+            <InputLabel>Exercise</InputLabel>
+            <Select
+              value={selectedExercise}
+              onChange={(e) => setSelectedExercise(e.target.value)}
+              label="Exercise"
+            >
+              {uniqueExercises.map(exercise => (
+                <MenuItem key={exercise} value={exercise}>
+                  {exercise === 'all' ? 'All Exercises' : exercise}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Grid>
       </Grid>
 
