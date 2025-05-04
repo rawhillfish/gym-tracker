@@ -10,6 +10,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '#1976d2' // Default MUI primary color
   },
+  retired: {
+    type: Boolean,
+    default: false
+  },
   // Soft deletion fields
   isDeleted: {
     type: Boolean,

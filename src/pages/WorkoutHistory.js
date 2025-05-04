@@ -36,7 +36,11 @@ import {
   OutlinedInput,
   Popover,
   ToggleButton,
-  ToggleButtonGroup
+  ToggleButtonGroup,
+  List,
+  ListItem,
+  LinearProgress,
+  FormControlLabel
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -67,13 +71,14 @@ import {
 
 const WorkoutHistory = () => {
   const [selectedDate, setSelectedDate] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState('all');
   const [chartMetric, setChartMetric] = useState('volume'); // 'volume' or 'maxWeight'
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [users, setUsers] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [showRetiredUsers, setShowRetiredUsers] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editWorkout, setEditWorkout] = useState(null);
@@ -84,7 +89,6 @@ const WorkoutHistory = () => {
     message: '',
     severity: 'success'
   });
-  const [selectedUsers, setSelectedUsers] = useState([]);
   
   // For chart tooltip
   const [tooltipData, setTooltipData] = useState(null);
@@ -94,6 +98,12 @@ const WorkoutHistory = () => {
   const [compareMode, setCompareMode] = useState(false);
   const [comparePoints, setComparePoints] = useState([]);
   const [compareDialogOpen, setCompareDialogOpen] = useState(false);
+
+  const [workoutStats, setWorkoutStats] = useState({
+    total: 0,
+    byTemplate: {},
+    byUser: {}
+  });
 
   useEffect(() => {
     fetchWorkouts();
@@ -118,11 +128,48 @@ const WorkoutHistory = () => {
     console.log('User colors:', colors);
   }, [users]);
 
+  useEffect(() => {
+    // This effect runs when users or showRetiredUsers changes
+    console.log('showRetiredUsers or users changed:', { showRetiredUsers, users });
+    
+    // Make sure the selectedUsers state is consistent with the showRetiredUsers setting
+    if (users.length > 0) {
+      setSelectedUsers(prevSelected => {
+        if (showRetiredUsers) {
+          // When showing retired users, we don't need to filter them out
+          return prevSelected;
+        } else {
+          // When hiding retired users, remove them from selectedUsers
+          return prevSelected.filter(userId => {
+            const user = users.find(u => u._id === userId);
+            return user && !user.retired;
+          });
+        }
+      });
+    }
+  }, [showRetiredUsers, users]);
+
   const fetchWorkouts = async () => {
     try {
       const response = await apiService.getCompletedWorkouts();
-      console.log('Fetched workouts:', response.data);
-      setWorkoutHistory(response.data);
+      const fetchedWorkouts = response.data;
+      console.log('Fetched workouts:', fetchedWorkouts);
+      
+      // Log the first workout to see its structure
+      if (fetchedWorkouts.length > 0) {
+        console.log('Sample workout structure:', JSON.stringify(fetchedWorkouts[0], null, 2));
+      }
+      
+      // Extract all unique user IDs from workouts
+      const workoutUserIds = new Set();
+      fetchedWorkouts.forEach(workout => {
+        if (workout.userId) {
+          workoutUserIds.add(workout.userId);
+        }
+      });
+      console.log('User IDs found in workouts:', [...workoutUserIds]);
+      
+      setWorkoutHistory(fetchedWorkouts);
     } catch (error) {
       console.error('Error fetching workouts:', error);
     }
@@ -132,11 +179,17 @@ const WorkoutHistory = () => {
     try {
       const response = await apiService.getUsers();
       const fetchedUsers = response.data;
+      
+      console.log('Raw fetched users:', fetchedUsers);
       setUsers(fetchedUsers);
       
-      // Initialize selectedUsers with all user IDs
+      // Initialize selectedUsers with all active user IDs
       if (fetchedUsers.length > 0 && selectedUsers.length === 0) {
-        setSelectedUsers(fetchedUsers.map(user => user._id));
+        // Select all non-retired users initially
+        const activeUserIds = fetchedUsers
+          .filter(user => !user.retired)
+          .map(user => user._id);
+        setSelectedUsers(activeUserIds);
       }
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -290,7 +343,6 @@ const WorkoutHistory = () => {
   // Filter workouts based on search, date range, and selected exercise
   const filteredWorkouts = useMemo(() => {
     return workoutHistory.filter(workout => {
-      const matchesSearch = workout.templateName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesDate = (!startDate || !endDate) ? true :
         isWithinInterval(parseISO(workout.startTime), {
           start: startDate,
@@ -299,9 +351,9 @@ const WorkoutHistory = () => {
       const matchesExercise = selectedExercise === 'all' ? true :
         workout.exercises.some(ex => ex.name === selectedExercise);
       
-      return matchesSearch && matchesDate && matchesExercise;
+      return matchesDate && matchesExercise;
     });
-  }, [workoutHistory, searchTerm, startDate, endDate, selectedExercise]);
+  }, [workoutHistory, startDate, endDate, selectedExercise]);
 
   // Prepare chart data
   const chartData = useMemo(() => {
@@ -396,6 +448,98 @@ const WorkoutHistory = () => {
       return dateA - dateB;
     });
   }, [filteredWorkouts, selectedExercise, chartMetric]);
+
+  // Calculate workout statistics
+  const calculateWorkoutStats = useCallback(() => {
+    const stats = {
+      total: 0,
+      byTemplate: {},
+      byUser: {}
+    };
+
+    console.log('Calculating workout stats with:', {
+      workoutHistory: workoutHistory.length,
+      selectedUsers,
+      startDate: startDate ? startDate.toISOString() : 'null',
+      endDate: endDate ? endDate.toISOString() : 'null'
+    });
+
+    // Use default date range if not set
+    const effectiveStartDate = startDate || new Date(0); // Jan 1, 1970
+    const effectiveEndDate = endDate || new Date(8640000000000000); // Max date
+
+    // Filter workouts by selected users and date range
+    const filteredWorkouts = workoutHistory.filter(workout => {
+      // Extract the date from the workout
+      let workoutDate;
+      if (workout.date) {
+        workoutDate = new Date(workout.date);
+      } else if (workout.startTime) {
+        workoutDate = new Date(workout.startTime);
+      } else {
+        console.log('Workout missing date:', workout);
+        return false;
+      }
+
+      // Check if the workout is in the date range
+      const isInDateRange = workoutDate >= effectiveStartDate && workoutDate <= effectiveEndDate;
+      
+      // Check if the workout is for a selected user
+      let isSelectedUser = false;
+      if (workout.userId) {
+        isSelectedUser = selectedUsers.includes(workout.userId);
+      } else if (workout.user && workout.user._id) {
+        isSelectedUser = selectedUsers.includes(workout.user._id);
+      }
+
+      console.log(`Workout ${workout._id}: date=${workoutDate.toISOString()}, inRange=${isInDateRange}, selectedUser=${isSelectedUser}`);
+      
+      return isInDateRange && isSelectedUser;
+    });
+
+    console.log('Filtered workouts:', filteredWorkouts.length);
+
+    filteredWorkouts.forEach(workout => {
+      // Increment total count
+      stats.total++;
+      
+      // Count by template
+      const templateName = workout.templateName || 'Unknown Template';
+      stats.byTemplate[templateName] = (stats.byTemplate[templateName] || 0) + 1;
+      
+      // Count by user
+      const userId = workout.userId || (workout.user && workout.user._id);
+      if (!userId) {
+        console.log('Workout missing userId:', workout);
+        return;
+      }
+
+      if (!stats.byUser[userId]) {
+        // Find user in users array
+        const user = users.find(u => u._id === userId);
+        stats.byUser[userId] = {
+          name: user ? user.name : (workout.user ? workout.user.name : 'Unknown User'),
+          color: user ? user.color : (workout.user ? workout.user.color : '#888888'),
+          total: 0,
+          byTemplate: {}
+        };
+      }
+      
+      stats.byUser[userId].total++;
+      
+      // Count by template for each user
+      stats.byUser[userId].byTemplate[templateName] = 
+        (stats.byUser[userId].byTemplate[templateName] || 0) + 1;
+    });
+    
+    console.log('Calculated stats:', stats);
+    return stats;
+  }, [workoutHistory, startDate, endDate, selectedUsers, users]);
+
+  useEffect(() => {
+    const stats = calculateWorkoutStats();
+    setWorkoutStats(stats);
+  }, [workoutHistory, startDate, endDate, selectedUsers, calculateWorkoutStats]);
 
   const exportWorkouts = () => {
     const workoutsToExport = filteredWorkouts.map(workout => ({
@@ -807,23 +951,96 @@ const WorkoutHistory = () => {
         </Box>
       </Paper>
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <TextField
-            fullWidth
-            label="Search Workouts"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
+      {/* Date Filter Presets */}
+      <Paper elevation={2} sx={{ p: 2, mb: 4, borderRadius: '8px' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <Typography variant="subtitle1" sx={{ mr: 2, fontWeight: 500, color: '#555' }}>
+            Quick Filters:
+          </Typography>
+          <Button 
+            variant="outlined" 
+            size="small"
+            onClick={() => {
+              const now = new Date();
+              // Get the current day of the week (0 = Sunday, 1 = Monday, etc.)
+              const currentDay = now.getDay();
+              // Calculate how many days to subtract to get to the beginning of the week (Monday)
+              const daysToSubtract = currentDay === 0 ? 6 : currentDay - 1;
+              // Create a new date for Monday of this week
+              const monday = new Date(now);
+              monday.setDate(now.getDate() - daysToSubtract);
+              monday.setHours(0, 0, 0, 0);
+              
+              setStartDate(monday);
+              setEndDate(now);
             }}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+          >
+            This Week
+          </Button>
+          <Button 
+            variant="outlined" 
+            size="small"
+            onClick={() => {
+              const now = new Date();
+              const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+              setStartDate(firstDay);
+              setEndDate(now);
+            }}
+          >
+            This Month
+          </Button>
+          <Button 
+            variant="outlined" 
+            size="small"
+            onClick={() => {
+              const now = new Date();
+              const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+              const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+              setStartDate(firstDay);
+              setEndDate(lastDay);
+            }}
+          >
+            Last Month
+          </Button>
+          <Button 
+            variant="outlined" 
+            size="small"
+            onClick={() => {
+              const now = new Date();
+              const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+              setStartDate(sixMonthsAgo);
+              setEndDate(now);
+            }}
+          >
+            Last 6 Months
+          </Button>
+          <Button 
+            variant="outlined" 
+            size="small"
+            onClick={() => {
+              const now = new Date();
+              const firstDay = new Date(now.getFullYear(), 0, 1);
+              setStartDate(firstDay);
+              setEndDate(now);
+            }}
+          >
+            This Year
+          </Button>
+          <Button 
+            variant="outlined" 
+            size="small"
+            onClick={() => {
+              setStartDate(null);
+              setEndDate(null);
+            }}
+          >
+            All Time
+          </Button>
+        </Box>
+      </Paper>
+
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={4}>
           <DatePicker
             selected={startDate}
             onChange={setStartDate}
@@ -833,7 +1050,7 @@ const WorkoutHistory = () => {
             dateFormat="MMMM d, yyyy"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <DatePicker
             selected={endDate}
             onChange={setEndDate}
@@ -843,7 +1060,7 @@ const WorkoutHistory = () => {
             dateFormat="MMMM d, yyyy"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <FormControl fullWidth>
             <InputLabel>Exercise</InputLabel>
             <Select
@@ -904,13 +1121,14 @@ const WorkoutHistory = () => {
                         return user ? (
                           <Chip 
                             key={userId} 
-                            label={user.name} 
+                            label={user.name + (user.retired ? ' (Retired)' : '')} 
                             size="small" 
                             style={{ 
                               backgroundColor: `${user.color}33`,
                               borderColor: user.color,
                               borderWidth: '1px',
-                              borderStyle: 'solid'
+                              borderStyle: 'solid',
+                              opacity: user.retired ? 0.7 : 1
                             }}
                           />
                         ) : null;
@@ -918,17 +1136,28 @@ const WorkoutHistory = () => {
                     </Box>
                   )}
                 >
-                  {users.map((user) => (
-                    <MenuItem key={user._id} value={user._id}>
-                      <Checkbox checked={selectedUsers.indexOf(user._id) > -1} />
-                      <ListItemText 
-                        primary={user.name} 
-                        primaryTypographyProps={{
-                          style: { color: user.color }
+                  {users
+                    .map((user) => (
+                      <MenuItem 
+                        key={user._id} 
+                        value={user._id}
+                        style={{ 
+                          display: (!showRetiredUsers && user.retired) ? 'none' : 'flex',
+                          opacity: user.retired ? 0.7 : 1
                         }}
-                      />
-                    </MenuItem>
-                  ))}
+                      >
+                        <Checkbox checked={selectedUsers.indexOf(user._id) > -1} />
+                        <ListItemText 
+                          primary={`${user.name}${user.retired ? ' (Retired)' : ''}`}
+                          primaryTypographyProps={{
+                            style: { 
+                              color: user.color,
+                              opacity: user.retired ? 0.7 : 1
+                            }
+                          }}
+                        />
+                      </MenuItem>
+                    ))}
                 </Select>
               </FormControl>
               
@@ -947,6 +1176,18 @@ const WorkoutHistory = () => {
                   <MenuItem value="maxWeight">Max Weight</MenuItem>
                 </Select>
               </FormControl>
+              
+              {/* Show retired users toggle */}
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={showRetiredUsers}
+                    onChange={(e) => setShowRetiredUsers(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label="Show Retired Users"
+              />
             </Box>
           </Box>
           
@@ -994,7 +1235,7 @@ const WorkoutHistory = () => {
               
               {/* Render a line for each selected user */}
               {users
-                .filter(user => selectedUsers.includes(user._id))
+                .filter(user => (showRetiredUsers || !user.retired) && selectedUsers.includes(user._id))
                 .map((user, index) => (
                   <Line
                     key={user._id}
@@ -1146,6 +1387,99 @@ const WorkoutHistory = () => {
               </Button>
             </DialogActions>
           </Dialog>
+        </Paper>
+      )}
+
+      {filteredWorkouts.length > 0 && (
+        <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
+          <Typography variant="h6" sx={{ mb: 3 }}>
+            Workout Statistics
+          </Typography>
+          
+          <Box sx={{ mb: 4, display: 'flex', justifyContent: 'center' }}>
+            <Chip 
+              label={`Total Workouts: ${workoutStats.total}`} 
+              color="primary" 
+              sx={{ fontSize: '1rem', py: 2, px: 3 }}
+            />
+          </Box>
+          
+          <Grid container spacing={3}>
+            {/* Template breakdown */}
+            <Grid item xs={12} md={6}>
+              <Paper elevation={1} sx={{ p: 2, height: '100%', bgcolor: 'background.default' }}>
+                <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 500, color: 'text.primary' }}>
+                  Workouts by Template
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <List dense>
+                  {Object.entries(workoutStats.byTemplate)
+                    .sort((a, b) => b[1] - a[1]) // Sort by count descending
+                    .map(([templateName, count], index) => (
+                      <ListItem key={templateName}>
+                        <ListItemText 
+                          primary={templateName} 
+                          secondary={`${count} workout${count !== 1 ? 's' : ''}`}
+                        />
+                        <LinearProgress 
+                          variant="determinate" 
+                          value={(count / workoutStats.total) * 100} 
+                          sx={{ width: 100, height: 8, borderRadius: 4 }}
+                        />
+                      </ListItem>
+                    ))}
+                </List>
+              </Paper>
+            </Grid>
+            
+            {/* User breakdown */}
+            <Grid item xs={12} md={6}>
+              <Paper elevation={1} sx={{ p: 2, height: '100%', bgcolor: 'background.default' }}>
+                <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 500, color: 'text.primary' }}>
+                  Workouts by User
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {Object.entries(workoutStats.byUser)
+                  .sort((a, b) => b[1].total - a[1].total) // Sort by total workouts descending
+                  .map(([userId, userData], index) => {
+                    const user = users.find(u => u._id === userId) || userData;
+                    return (
+                      <Box key={userId} sx={{ mb: 3 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                          <Box 
+                            sx={{ 
+                              width: 12, 
+                              height: 12, 
+                              borderRadius: '50%', 
+                              bgcolor: user.color || userData.color,
+                              mr: 1 
+                            }} 
+                          />
+                          <Typography variant="subtitle2">
+                            {user.name || userData.name} {user.retired ? '(Retired)' : ''}
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ pl: 3 }}>
+                          {Object.entries(userData.byTemplate)
+                            .sort((a, b) => b[1] - a[1]) // Sort by count descending
+                            .map(([templateName, count], index) => (
+                              <Box key={`${userId}-${templateName}-${index}`} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  {templateName}:
+                                </Typography>
+                                <Typography variant="body2" fontWeight={500}>
+                                  {count}
+                                </Typography>
+                              </Box>
+                            ))}
+                        </Box>
+                      </Box>
+                    );
+                  })}
+              </Paper>
+            </Grid>
+          </Grid>
         </Paper>
       )}
 

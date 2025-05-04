@@ -68,9 +68,8 @@ async function resetDatabase() {
     // Step 3: Create default users
     console.log('\nCreating default users...');
     const defaultUsers = [
-      { name: 'Default User', color: '#2196f3' },
-      { name: 'Jason', color: '#2196f3' },
-      { name: 'Andrew', color: '#f44336' }
+      { name: 'Jason', color: '#4ECDC4' },
+      { name: 'Andrew', color: '#FF6B6B' }
     ];
     
     const createdUsers = await Promise.all(
@@ -104,7 +103,7 @@ async function resetDatabase() {
     // Define templates - using the current 4 saved workout templates
     const templates = [
       {
-        name: '(1/4) 2DFB Barbell Squat',
+        name: '2DFB (1/4) Barbell Squat',
         description: '',
         exercises: [
           {
@@ -138,7 +137,7 @@ async function resetDatabase() {
         ]
       },
       {
-        name: '(2/4) 2DFB Bench Press',
+        name: '2DFB (2/4) Bench Press',
         description: '',
         exercises: [
           {
@@ -172,7 +171,7 @@ async function resetDatabase() {
         ]
       },
       {
-        name: '(3/4) 32DFB Deadlift',
+        name: '2DFB (3/4) Deadlift',
         description: '',
         exercises: [
           {
@@ -206,7 +205,7 @@ async function resetDatabase() {
         ]
       },
       {
-        name: '(4/4) 2DFB Barbell Row',
+        name: '2DFB (4/4) Barbell Row',
         description: '',
         exercises: [
           {

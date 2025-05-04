@@ -18,7 +18,9 @@ import {
   Alert,
   Snackbar,
   CircularProgress,
-  Grid
+  Grid,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import { 
   Add as AddIcon, 
@@ -72,7 +74,7 @@ const UserManager = ({ isSubTab }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [currentUser, setCurrentUser] = useState({ name: '', color: '#1976d2' });
+  const [currentUser, setCurrentUser] = useState({ name: '', color: '#1976d2', retired: false });
   const [isEditing, setIsEditing] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -82,15 +84,17 @@ const UserManager = ({ isSubTab }) => {
     try {
       const response = await apiService.getUsers({ includeDeleted: true });
       
-      // Separate active and retired users
+      // Process users
       if (response && Array.isArray(response)) {
-        const active = response.filter(user => !user.isDeleted);
-        const retired = response.filter(user => user.isDeleted);
+        // Separate active and retired users
+        const active = response.filter(user => !user.isDeleted && !user.retired);
+        const retired = response.filter(user => user.isDeleted || user.retired);
         setActiveUsers(active);
         setRetiredUsers(retired);
       } else if (response && response.data && Array.isArray(response.data)) {
-        const active = response.data.filter(user => !user.isDeleted);
-        const retired = response.data.filter(user => user.isDeleted);
+        // Separate active and retired users
+        const active = response.data.filter(user => !user.isDeleted && !user.retired);
+        const retired = response.data.filter(user => user.isDeleted || user.retired);
         setActiveUsers(active);
         setRetiredUsers(retired);
       } else {
@@ -117,7 +121,7 @@ const UserManager = ({ isSubTab }) => {
 
   // Handle dialog open for creating a new user
   const handleAddUser = () => {
-    setCurrentUser({ name: '', color: '#1976d2' });
+    setCurrentUser({ name: '', color: '#1976d2', retired: false });
     setIsEditing(false);
     setOpenDialog(true);
   };
@@ -155,7 +159,8 @@ const UserManager = ({ isSubTab }) => {
         // Update existing user
         await apiService.updateUser(currentUser._id, {
           name: currentUser.name,
-          color: currentUser.color
+          color: currentUser.color,
+          retired: currentUser.retired
         });
         setSnackbar({
           open: true,
@@ -166,7 +171,8 @@ const UserManager = ({ isSubTab }) => {
         // Create new user
         await apiService.createUser({
           name: currentUser.name,
-          color: currentUser.color
+          color: currentUser.color,
+          retired: currentUser.retired
         });
         setSnackbar({
           open: true,
@@ -267,91 +273,6 @@ const UserManager = ({ isSubTab }) => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Render user list
-  const renderUserList = (users, isRetiredSection = false) => {
-    if (users.length === 0) {
-      return (
-        <Box sx={{ p: 3, textAlign: 'center' }}>
-          <Typography>
-            {isRetiredSection 
-              ? 'No retired users found.' 
-              : 'No users found. Add your first user!'}
-          </Typography>
-        </Box>
-      );
-    }
-
-    return (
-      <List>
-        {users.map((user) => (
-          <React.Fragment key={user._id}>
-            <ListItem
-              sx={{ textDecoration: 'none' }}
-              secondaryAction={
-                <Box>
-                  {isRetiredSection ? (
-                    <>
-                      <IconButton
-                        edge="end"
-                        aria-label="restore"
-                        onClick={() => handleRestoreUser(user._id)}
-                        title="Restore user"
-                        sx={{ mr: 1 }}
-                      >
-                        <RestoreIcon />
-                      </IconButton>
-                      <IconButton
-                        edge="end"
-                        aria-label="hard delete"
-                        onClick={() => handleHardDeleteUser(user._id)}
-                        title="Permanently delete user"
-                      >
-                        <DeleteForeverIcon />
-                      </IconButton>
-                    </>
-                  ) : (
-                    <>
-                      <IconButton
-                        edge="end"
-                        aria-label="edit"
-                        onClick={() => handleEditUser(user)}
-                        title="Edit user"
-                        sx={{ mr: 1 }}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        edge="end"
-                        aria-label="retire"
-                        onClick={() => handleRetireUser(user._id)}
-                        title="Retire user"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </>
-                  )}
-                </Box>
-              }
-            >
-              <Box display="flex" alignItems="center" width="100%">
-                <ColorPreview sx={{ bgcolor: user.color }} />
-                <ListItemText
-                  primary={user.name}
-                  secondary={
-                    isRetiredSection
-                      ? `Retired on ${new Date(user.deletedAt).toLocaleDateString()}`
-                      : `Created on ${new Date(user.createdAt).toLocaleDateString()}`
-                  }
-                />
-              </Box>
-            </ListItem>
-            <Divider component="li" />
-          </React.Fragment>
-        ))}
-      </List>
-    );
-  };
-
   return (
     <Container maxWidth="md" sx={{ mt: isSubTab ? 0 : 4, mb: 4 }}>
       <Box display="flex" justifyContent="flex-end" mb={3}>
@@ -372,7 +293,7 @@ const UserManager = ({ isSubTab }) => {
       )}
 
       <Grid container spacing={3}>
-        {/* Active Users Section */}
+        {/* Active Users */}
         <Grid item xs={12}>
           <Paper sx={{ mb: 3 }}>
             <Box sx={{ p: 2, bgcolor: 'primary.main', color: 'white' }}>
@@ -385,12 +306,43 @@ const UserManager = ({ isSubTab }) => {
                 <CircularProgress />
               </Box>
             ) : (
-              renderUserList(activeUsers, false)
+              <Box sx={{ p: 2 }}>
+                <Typography variant="h6" gutterBottom>
+                  Active Users
+                </Typography>
+                <List>
+                  {activeUsers.map((user) => (
+                    <ListItem key={user._id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                        <ColorPreview bgcolor={user.color} />
+                        <ListItemText primary={user.name} />
+                        <Box>
+                          <IconButton
+                            edge="end"
+                            aria-label="edit"
+                            onClick={() => handleEditUser(user)}
+                            sx={{ mr: 1 }}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton
+                            edge="end"
+                            aria-label="delete"
+                            onClick={() => handleRetireUser(user._id)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
             )}
           </Paper>
         </Grid>
         
-        {/* Retired Users Section */}
+        {/* Retired Users */}
         <Grid item xs={12}>
           <Paper sx={{ mb: 3 }}>
             <Box sx={{ p: 2, bgcolor: 'error.main', color: 'white' }}>
@@ -403,7 +355,45 @@ const UserManager = ({ isSubTab }) => {
                 <CircularProgress />
               </Box>
             ) : (
-              renderUserList(retiredUsers, true)
+              <Box sx={{ p: 2 }}>
+                {retiredUsers.length > 0 && (
+                  <>
+                    <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
+                      Retired Users
+                    </Typography>
+                    <List>
+                      {retiredUsers.map((user) => (
+                        <ListItem key={user._id}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', opacity: 0.7 }}>
+                            <ColorPreview bgcolor={user.color} />
+                            <ListItemText 
+                              primary={`${user.name}${user.retired ? ' (Retired)' : ' (Deleted)'}`} 
+                            />
+                            <Box>
+                              <IconButton
+                                edge="end"
+                                aria-label="restore"
+                                onClick={() => handleRestoreUser(user._id)}
+                                sx={{ mr: 1 }}
+                              >
+                                <RestoreIcon />
+                              </IconButton>
+                              <IconButton
+                                edge="end"
+                                aria-label="delete permanently"
+                                onClick={() => handleHardDeleteUser(user._id)}
+                                color="error"
+                              >
+                                <DeleteForeverIcon />
+                              </IconButton>
+                            </Box>
+                          </Box>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </>
+                )}
+              </Box>
             )}
           </Paper>
         </Grid>
@@ -447,6 +437,16 @@ const UserManager = ({ isSubTab }) => {
                 </Box>
               </Grid>
             </Grid>
+            
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={currentUser.retired}
+                  onChange={(e) => setCurrentUser({ ...currentUser, retired: e.target.checked })}
+                />
+              }
+              label="Retired"
+            />
           </Box>
         </DialogContent>
         <DialogActions>

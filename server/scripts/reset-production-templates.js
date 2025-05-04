@@ -77,7 +77,7 @@ const resetWorkoutTemplates = async () => {
     // Define templates - using the current 4 saved workout templates
     console.log('Creating new workout templates...');
     const template1 = {
-      name: '(1/4) 2DFB Barbell Squat',
+      name: '2DFB (1/4) Barbell Squat',
       description: '',
       exercises: [
         {
@@ -112,7 +112,7 @@ const resetWorkoutTemplates = async () => {
     };
     
     const template2 = {
-      name: '(2/4) 2DFB Bench Press',
+      name: '2DFB (2/4) Bench Press',
       description: '',
       exercises: [
         {
@@ -147,7 +147,7 @@ const resetWorkoutTemplates = async () => {
     };
     
     const template3 = {
-      name: '(3/4) 32DFB Deadlift',
+      name: '2DFB (3/4) Deadlift',
       description: '',
       exercises: [
         {
@@ -182,7 +182,7 @@ const resetWorkoutTemplates = async () => {
     };
     
     const template4 = {
-      name: '(4/4) 2DFB Barbell Row',
+      name: '2DFB (4/4) Barbell Row',
       description: '',
       exercises: [
         {

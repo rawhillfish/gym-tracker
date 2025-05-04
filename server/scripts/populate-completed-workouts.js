@@ -1,6 +1,6 @@
 /**
  * Script to populate the database with completed workouts
- * Creates 10 completed workouts for each template spanning over the last 6 months
+ * Creates 15 completed workouts for each template spanning over the last 6 months
  */
 
 const mongoose = require('mongoose');
@@ -13,7 +13,8 @@ const CompletedWorkout = require('../models/CompletedWorkout');
 // Connect to MongoDB
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
+    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/gym-tracker';
+    await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000
     });
     console.log('MongoDB Connected for populating completed workouts');
@@ -126,11 +127,21 @@ const populateCompletedWorkouts = async () => {
     console.log('Cleared existing completed workouts');
     
     // Get all users
-    const users = await User.find({});
-    if (users.length === 0) {
+    const allUsers = await User.find({});
+    if (allUsers.length === 0) {
       console.error('No users found. Please run seed.js first.');
       process.exit(1);
     }
+    
+    // Filter for only Jason and Andrew
+    const users = allUsers.filter(user => user.name === 'Jason' || user.name === 'Andrew');
+    
+    if (users.length === 0) {
+      console.error('Neither Jason nor Andrew found in users. Please check user data.');
+      process.exit(1);
+    }
+    
+    console.log(`Found ${users.length} matching users: ${users.map(u => u.name).join(', ')}`);
     
     // Get all workout templates
     const templates = await WorkoutTemplate.find({});
@@ -139,16 +150,16 @@ const populateCompletedWorkouts = async () => {
       process.exit(1);
     }
     
-    console.log(`Found ${templates.length} templates and ${users.length} users`);
+    console.log(`Found ${templates.length} templates`);
     
-    // Generate 10 completed workouts for each template
+    // Generate 15 completed workouts for each template
     const completedWorkouts = [];
     
     for (const template of templates) {
       console.log(`Generating completed workouts for template: ${template.name}`);
       
-      // Create 10 workouts per template
-      for (let i = 0; i < 10; i++) {
+      // Create 15 workouts per template (alternating between users)
+      for (let i = 0; i < 15; i++) {
         // Alternate between users
         const user = users[i % users.length];
         
