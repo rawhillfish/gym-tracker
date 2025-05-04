@@ -12,8 +12,12 @@ const WorkoutTemplateSchema = new mongoose.Schema({
   },
   exercises: [{
     exerciseId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Exercise'
+      type: String,
+      required: true
+    },
+    _id: {
+      type: mongoose.Schema.Types.Mixed, 
+      required: false 
     },
     name: String,
     category: String,

@@ -353,7 +353,7 @@ This document tracks all interactions between the developer and the AI assistant
 
 1. **User Request**: "on the active exercises can you group by category"
 
-2. **Understanding**: The user wanted to improve the organization of the active exercises section by grouping exercises by their categories (Chest, Back, Legs, etc.) to make it easier to find specific exercises.
+2. **Understanding**: The user wanted to improve the organization of the active exercises section in the Exercise Manager component by grouping exercises by their categories (Chest, Back, Legs, etc.) to make it easier to find specific exercises.
 
 3. **Actions Taken**:
    - Updated the renderExerciseList function to handle active and retired exercises differently
@@ -908,5 +908,439 @@ This document tracks all interactions between the developer and the AI assistant
    - Provided step-by-step instructions for deploying to production
 
 4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Update MongoDB database for production
+
+1. **User Request**: "i ahve deployed front end changes, how do we update mongodb db"
+
+2. **Understanding**: The user has successfully deployed the frontend changes to production and now needs to update the MongoDB database in the production environment. This involves migrating the database schema changes, updating exercises with the new categories, and ensuring all data relationships are preserved.
+
+3. **Actions Taken**:
+   - Examined the existing database scripts in the project (seed.js, clear-database.js)
+   - Created a new script specifically for updating the production database: `server/scripts/update-production-db.js`
+   - Designed the script to:
+     - Connect to the production MongoDB database using .env.production settings
+     - Backup existing user data and workout history
+     - Update exercises with the latest categories and names
+     - Update workout templates with the latest exercise references
+     - Update completed workouts to reference the new exercise IDs
+     - Include safeguards like user confirmation before making changes
+   - Updated CHANGES.md to document the new database update script
+   - Updated CHANGES-CHAT-LOG.md to document this interaction
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/server/scripts/update-production-db.js` (created)
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Update MongoDB database for production
+
+1. **User Request**: "i ahve deployed front end changes, how do we update mongodb db"
+
+2. **Understanding**: The user has successfully deployed the frontend changes to production and now needs to update the MongoDB database in the production environment. This involves migrating the database schema changes, updating exercises with the new categories, and ensuring all data relationships are preserved.
+
+3. **Actions Taken**:
+   - Examined the existing database scripts in the project (seed.js, clear-database.js)
+   - Created a new interactive script for updating the production database: `server/scripts/update-production-db.js`
+   - Created a non-interactive version for CI/CD pipelines: `server/scripts/update-production-db-noninteractive.js`
+   - Designed the scripts to:
+     - Connect to the production MongoDB database using .env.production settings
+     - Backup existing user data and workout history
+     - Update exercises with the latest categories and names
+     - Update workout templates with the latest exercise references
+     - Update completed workouts to reference the new exercise IDs
+     - Include safeguards like user confirmation in the interactive version
+   - Fixed an issue with the readline interface in the interactive script
+   - Updated CHANGES.md to document the new database update scripts
+   - Updated CHANGES-CHAT-LOG.md to document this interaction
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/server/scripts/update-production-db.js` (created)
+   - `/home/jasonpovey/repos/gym-tracker/server/scripts/update-production-db-noninteractive.js` (created)
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Modify weight pre-filling logic to use same workout template
+
+1. **User Request**: "can you change it so 'It extracts the weights used in the most recent workout containing that exercise' to ' It extracts the weights used in the most recent workout of the same workjout template containing that exercise"
+
+2. **Understanding**: The user wanted to modify the weight pre-filling logic to be more specific and only use weights from previous workouts of the same template, rather than any workout containing the exercise. This ensures that weights are more relevant to the current workout being performed.
+
+3. **Actions Taken**:
+   - Modified the `getLastUsedWeights` function to check for matching template names
+   - Added a template name parameter to the function
+   - Added a condition to skip workouts with different template names
+   - Updated the startWorkout function to pass the template name to getLastUsedWeights
+   - Updated the snackbar message to clarify that weights come from the same template
+   - Enhanced logging to show which templates are being checked and matched
+   - Restored the UI indicator for pre-filled weights
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/ActiveWorkout.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Fix weight pre-filling not working
+
+1. **User Request**: "the weight do not appear to be pre-filling"
+
+2. **Understanding**: The user reported that weights were not being pre-filled when starting a new workout, despite the changes made to modify the weight pre-filling logic to use weights from the same template. This indicated an issue with the template matching logic.
+
+3. **Actions Taken**:
+   - Investigated the getLastUsedWeights function and identified that the strict template name matching was preventing weights from being pre-filled
+   - Modified the getLastUsedWeights function to use a more flexible template matching approach:
+     - First tries to find workouts with an exact template name match
+     - If no exact matches, tries to find workouts with similar template names (partial matches)
+     - If still no matches, falls back to using all workouts
+   - Added detailed logging to help diagnose template matching issues
+   - Updated the CHANGES.md file to document the fix
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/ActiveWorkout.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Use template ID for workout matching
+
+1. **User Request**: "can you make the template matching use unuique id for the wrokout template"
+
+2. **Understanding**: The user wants to improve the template matching logic by using unique template IDs instead of relying on template names. This provides a more reliable way to match templates, as IDs are guaranteed to be unique while names might be similar or changed over time.
+
+3. **Actions Taken**:
+   - Modified the getLastUsedWeights function to accept the entire template object instead of just the template name
+   - Implemented a three-tier matching approach:
+     1. First try to match by template ID (most reliable)
+     2. If no ID match, fall back to template name matching (exact, then partial)
+     3. If still no match, use all available workouts
+   - Added a second sample workout with a different template ID to demonstrate and test the ID-based matching
+   - Enhanced logging to show both template ID and name in the logs
+   - Updated the function call to pass the entire template object instead of just the name
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/ActiveWorkout.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Strict template ID matching only
+
+1. **User Request**: "remove tier2 and tier 3 of mnatching approach, don't pre-fill if doens't match unique id"
+
+2. **Understanding**: The user wants to make the template matching stricter by only using template IDs for matching and not falling back to name-based matching. If there's no exact template ID match, weights should not be pre-filled at all.
+
+3. **Actions Taken**:
+   - Removed all name-based template matching fallbacks (tier 2 and tier 3)
+   - Modified the getLastUsedWeights function to only filter workouts by exact template ID match
+   - Added early return with empty weights if no template ID match is found
+   - Updated logging to clearly indicate when weights are not being pre-filled due to no template ID match
+   - Simplified the matching logic to be more straightforward and strict
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/ActiveWorkout.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Fix weight pre-filling issues
+
+1. **User Request**: "i dont understand why the template name is 'sdfsd', i don't see that workouttemplate in the database"
+
+2. **Understanding**: The user was experiencing issues with weight pre-filling not working correctly. The application was showing workout templates with names like "sdfsdf" that didn't exist in the database. This indicated a problem with how workout data was being handled, particularly with localStorage data taking precedence over database data.
+
+3. **Actions Taken**:
+   - Investigated the issue and found that the application was using sample data from localStorage instead of real data from the database
+   - Modified the fetchPreviousWorkoutData function to prioritize database data over localStorage data
+   - Added code to clear localStorage when the component mounts to ensure fresh data is used
+   - Updated the finishWorkout function to ensure it correctly saves template and exercise IDs
+   - Replaced hardcoded IDs with dynamic lookups using helper functions:
+     - Added findTemplateIdByName and findExerciseIdByName helper functions
+     - Updated server-side code to dynamically look up IDs instead of using hardcoded values
+   - Enhanced the CompletedWorkout model to properly handle template and exercise IDs
+   - Improved error handling and added detailed logging throughout the code
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/ActiveWorkout.js`
+   - `/home/jasonpovey/repos/gym-tracker/src/services/api.js`
+   - `/home/jasonpovey/repos/gym-tracker/server/models/CompletedWorkout.js`
+   - `/home/jasonpovey/repos/gym-tracker/server/routes/completed-workouts.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Fix "Update Template" button not working
+
+1. **User Request**: "'Update Template' button on edit workout template does not do anything' Here is console log: 'WorkoutBuilder.js:86 ===== SAVE TEMPLATE DEBUG =====
+WorkoutBuilder.js:87 Current selectedExercises: (4) [{…}, {…}, {…}, {…}]
+WorkoutBuilder.js:101 Saving exercise: Deadlift, ID: temp-exercise-0-1746343268866, sets: 5, reps: 5
+WorkoutBuilder.js:101 Saving exercise: Bench Press, ID: temp-exercise-1-1746343268867, sets: 5, reps: 10
+WorkoutBuilder.js:101 Saving exercise: Seal Barbell Row, ID: temp-exercise-2-1746343268867, sets: 5, reps: 10
+WorkoutBuilder.js:101 Saving exercise: Bulgarian Split Squat, ID: temp-exercise-3-1746343268867, sets: 5, reps: 10
+WorkoutBuilder.js:110 Template data: {
+  "name": "2DFB Deadlift",
+  "description": "",
+  "exercises": [
+    {
+      "_id": "temp-exercise-0-1746343268866",
+      "name": "Deadlift",
+      "category": "Back",
+      "sets": 5,
+      "reps": 5
+    },
+    {
+      "_id": "temp-exercise-1-1746343268867",
+      "name": "Bench Press",
+      "category": "Chest",
+      "sets": 5,
+      "reps": 10
+    },
+    {
+      "_id": "temp-exercise-2-1746343268867",
+      "name": "Seal Barbell Row",
+      "category": "Back",
+      "sets": 5,
+      "reps": 10
+    },
+    {
+      "_id": "temp-exercise-3-1746343268867",
+      "name": "Bulgarian Split Squat",
+      "category": "Legs (Glutes)",
+      "sets": 5,
+      "reps": 10
+    }
+  ]
+}
+WorkoutBuilder.js:111 ===== END SAVE TEMPLATE DEBUG =====
+WorkoutBuilder.js:114 Updating existing template: 681708c2dcb707deeba2f3fb
+api.js:57 API Request [PUT]: /api/workout-templates/681708c2dcb707deeba2f3fb
+api.js:154 
+            
+            
+           PUT http://localhost:5000/api/workout-templates/681708c2dcb707deeba2f3fb 400 (Bad Request)
+WorkoutBuilder.js:143 Error saving workout template: AxiosError {message: 'Request failed with status code 400', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}
+WorkoutBuilder.js:144 Error details: {message: 'WorkoutTemplate validation failed: exercises.0._id…ises.3.exerciseId: Path `exerciseId` is required.'}"
+
+2. **Understanding**: The user is experiencing an issue with the "Update Template" button not working in the workout template editor. The error logs indicate that the problem is related to missing `exerciseId` fields in the exercises array when updating a template. According to the MongoDB model validation, the `exerciseId` field is required for each exercise in a workout template, but it's not being properly set when updating an existing template.
+
+3. **Actions Taken**:
+   - Examined the WorkoutBuilder.js file to understand how template updates are handled
+   - Identified that the handleSaveTemplate function wasn't properly ensuring that each exercise had a valid exerciseId
+   - Updated the handleSaveTemplate function to ensure exerciseId is always set for each exercise
+   - Modified the handleEditTemplate function to properly preserve and set exerciseId when editing a template
+   - Enhanced the server-side PUT route in workout-templates.js to validate and handle exerciseId properly
+   - Added fallback ID generation for exercises missing exerciseId
+   - Added more detailed logging to help diagnose any future issues
+   - Updated the CHANGES.md file to document the fix
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/WorkoutBuilder.js`
+   - `/home/jasonpovey/repos/gym-tracker/server/routes/workout-templates.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Fix _id field type issue in "Update Template" button
+
+1. **User Request**: The user shared a new error log showing that the "Update Template" button was still not working. The error message indicated a type mismatch with the `_id` field: "WorkoutTemplate validation failed: exercises.0._id...type string) at path "_id" because of "BSONError"". This suggested that MongoDB was expecting `_id` to be an ObjectId, but the client was sending temporary string IDs (like "temp-exercise-0-1746343631175") which were causing validation errors in MongoDB.
+
+2. **Understanding**: After fixing the initial issue with the missing `exerciseId` field, a new problem emerged related to the `_id` field in the exercises array. In MongoDB, the `_id` field is typically expected to be an ObjectId, but the client was sending temporary string IDs which were causing validation errors.
+
+3. **Actions Taken**:
+   - Updated the WorkoutTemplate schema to make the `_id` field in exercises more flexible by changing its type from ObjectId to Mixed
+   - Made the `_id` field optional in the schema to prevent validation errors
+   - Added an `isValidObjectId` helper function to the client to check if an ID is a valid MongoDB ObjectId
+   - Modified the client-side code to only include the `_id` field if it's a valid MongoDB ObjectId
+   - Updated the server-side code to handle both string and ObjectId types for the `_id` field
+   - Improved the client-side code to use temporary IDs for tracking but avoid sending invalid ObjectIds to the server
+   - Enhanced error handling and logging to better diagnose any future issues
+   - Updated the CHANGES.md file to document the additional fixes
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/server/models/WorkoutTemplate.js`
+   - `/home/jasonpovey/repos/gym-tracker/server/routes/workout-templates.js`
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/WorkoutBuilder.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Fix missing exerciseId in Exercise collection
+
+1. **User Request**: "the exercises in their collection do not appear to have exercisesids"
+
+2. **Understanding**: The user identified that the exercises in the database collection don't have exerciseId fields, which is why the exercise ID matching wasn't working correctly. The Exercise model needed to be updated to include this field, and existing exercises needed to be migrated.
+
+3. **Actions Taken**:
+   - Updated the Exercise model to include an exerciseId field that defaults to the string representation of the _id
+   - Created a migration script (migrateExercises.js) to add exerciseId to all existing exercises in the database
+   - Fixed the ID field priority order in the matching logic to match MongoDB's convention (_id first, then other fields)
+   - Updated the exercise matching logic to properly check for all possible ID field names
+   - Ensured consistent ID field checking throughout the codebase
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/server/models/Exercise.js`
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/ActiveWorkout.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+5. **Files Created**:
+   - `/home/jasonpovey/repos/gym-tracker/server/scripts/migrateExercises.js`
+
+### Request: Reset database with updated schema
+
+1. **User Request**: "can you drop the databse with these changes"
+
+2. **Understanding**: The user wanted to completely reset the database to ensure all the schema changes and ID fixes were properly applied from the beginning, rather than trying to migrate existing data.
+
+3. **Actions Taken**:
+   - Created a comprehensive resetDatabase.js script that:
+     - Drops the entire database
+     - Recreates the database with the updated schema
+     - Adds default data (exercises, users, templates)
+     - Ensures all IDs are properly set from the beginning
+   - Added default exercises with exerciseId properly set
+   - Created default workout templates with proper exercise references
+   - Created a default user
+   - Ran the script to completely reset the database
+   - Verified that all created entities have proper IDs
+
+4. **Files Created**:
+   - `/home/jasonpovey/repos/gym-tracker/server/scripts/resetDatabase.js`
+
+### Request: Fix weight pre-filling issues
+
+1. **User Request**: "i dont understand why the template name is 'sdfsd', i don't see that workouttemplate in the database"
+
+2. **Understanding**: The user was experiencing issues with weight pre-filling not working correctly. The application was showing workout templates with names like "sdfsdf" that didn't exist in the database. This indicated a problem with how workout data was being handled, particularly with localStorage data taking precedence over database data.
+
+3. **Actions Taken**:
+   - Investigated the issue and found that the application was using sample data from localStorage instead of real data from the database
+   - Modified the fetchPreviousWorkoutData function to prioritize database data over localStorage data
+   - Added code to clear localStorage when the component mounts to ensure fresh data is used
+   - Updated the finishWorkout function to ensure it correctly saves template and exercise IDs
+   - Replaced hardcoded IDs with dynamic lookups using helper functions:
+     - Added findTemplateIdByName and findExerciseIdByName helper functions
+     - Updated server-side code to dynamically look up IDs instead of using hardcoded values
+   - Enhanced the CompletedWorkout model to properly handle template and exercise IDs
+   - Improved error handling and added detailed logging throughout the code
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/ActiveWorkout.js`
+   - `/home/jasonpovey/repos/gym-tracker/src/services/api.js`
+   - `/home/jasonpovey/repos/gym-tracker/server/models/CompletedWorkout.js`
+   - `/home/jasonpovey/repos/gym-tracker/server/routes/completed-workouts.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Fix "Update Template" button not working
+
+1. **User Request**: "'Update Template' button on edit workout template does not do anything' Here is console log: 'WorkoutBuilder.js:86 ===== SAVE TEMPLATE DEBUG =====
+WorkoutBuilder.js:87 Current selectedExercises: (4) [{…}, {…}, {…}, {…}]
+WorkoutBuilder.js:101 Saving exercise: Deadlift, ID: temp-exercise-0-1746343268866, sets: 5, reps: 5
+WorkoutBuilder.js:101 Saving exercise: Bench Press, ID: temp-exercise-1-1746343268867, sets: 5, reps: 10
+WorkoutBuilder.js:101 Saving exercise: Seal Barbell Row, ID: temp-exercise-2-1746343268867, sets: 5, reps: 10
+WorkoutBuilder.js:101 Saving exercise: Bulgarian Split Squat, ID: temp-exercise-3-1746343268867, sets: 5, reps: 10
+WorkoutBuilder.js:110 Template data: {
+  "name": "2DFB Deadlift",
+  "description": "",
+  "exercises": [
+    {
+      "_id": "temp-exercise-0-1746343268866",
+      "name": "Deadlift",
+      "category": "Back",
+      "sets": 5,
+      "reps": 5
+    },
+    {
+      "_id": "temp-exercise-1-1746343268867",
+      "name": "Bench Press",
+      "category": "Chest",
+      "sets": 5,
+      "reps": 10
+    },
+    {
+      "_id": "temp-exercise-2-1746343268867",
+      "name": "Seal Barbell Row",
+      "category": "Back",
+      "sets": 5,
+      "reps": 10
+    },
+    {
+      "_id": "temp-exercise-3-1746343268867",
+      "name": "Bulgarian Split Squat",
+      "category": "Legs (Glutes)",
+      "sets": 5,
+      "reps": 10
+    }
+  ]
+}
+WorkoutBuilder.js:111 ===== END SAVE TEMPLATE DEBUG =====
+WorkoutBuilder.js:114 Updating existing template: 681708c2dcb707deeba2f3fb
+api.js:57 API Request [PUT]: /api/workout-templates/681708c2dcb707deeba2f3fb
+api.js:154 
+            
+            
+           PUT http://localhost:5000/api/workout-templates/681708c2dcb707deeba2f3fb 400 (Bad Request)
+WorkoutBuilder.js:143 Error saving workout template: AxiosError {message: 'Request failed with status code 400', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}
+WorkoutBuilder.js:144 Error details: {message: 'WorkoutTemplate validation failed: exercises.0._id…ises.3.exerciseId: Path `exerciseId` is required.'}"
+
+2. **Understanding**: The user is experiencing an issue with the "Update Template" button not working in the workout template editor. The error logs indicate that the problem is related to missing `exerciseId` fields in the exercises array when updating a template. According to the MongoDB model validation, the `exerciseId` field is required for each exercise in a workout template, but it's not being properly set when updating an existing template.
+
+3. **Actions Taken**:
+   - Examined the WorkoutBuilder.js file to understand how template updates are handled
+   - Identified that the handleSaveTemplate function wasn't properly ensuring that each exercise had a valid exerciseId
+   - Updated the handleSaveTemplate function to ensure exerciseId is always set for each exercise
+   - Modified the handleEditTemplate function to properly preserve and set exerciseId when editing a template
+   - Enhanced the server-side PUT route in workout-templates.js to validate and handle exerciseId properly
+   - Added fallback ID generation for exercises missing exerciseId
+   - Added more detailed logging to help diagnose any future issues
+   - Updated the CHANGES.md file to document the fix
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/WorkoutBuilder.js`
+   - `/home/jasonpovey/repos/gym-tracker/server/routes/workout-templates.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Fix _id field type issue in "Update Template" button
+
+1. **User Request**: The user shared a new error log showing that the "Update Template" button was still not working. The error message indicated a type mismatch with the `_id` field: "WorkoutTemplate validation failed: exercises.0._id...type string) at path "_id" because of "BSONError"". This suggested that MongoDB was expecting `_id` to be an ObjectId, but the client was sending temporary string IDs (like "temp-exercise-0-1746343631175") which were causing validation errors in MongoDB.
+
+2. **Understanding**: After fixing the initial issue with the missing `exerciseId` field, a new problem emerged related to the `_id` field in the exercises array. In MongoDB, the `_id` field is typically expected to be an ObjectId, but the client was sending temporary string IDs which were causing validation errors.
+
+3. **Actions Taken**:
+   - Updated the WorkoutTemplate schema to make the `_id` field in exercises more flexible by changing its type from ObjectId to Mixed
+   - Made the `_id` field optional in the schema to prevent validation errors
+   - Added an `isValidObjectId` helper function to the client to check if an ID is a valid MongoDB ObjectId
+   - Modified the client-side code to only include the `_id` field if it's a valid MongoDB ObjectId
+   - Updated the server-side code to handle both string and ObjectId types for the `_id` field
+   - Improved the client-side code to use temporary IDs for tracking but avoid sending invalid ObjectIds to the server
+   - Enhanced error handling and logging to better diagnose any future issues
+   - Updated the CHANGES.md file to document the additional fixes
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/server/models/WorkoutTemplate.js`
+   - `/home/jasonpovey/repos/gym-tracker/server/routes/workout-templates.js`
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/WorkoutBuilder.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Update seed data with current workout templates
+
+1. **User Request**: "can you replace saved workout templates in seed data and reset script with the current 4 saved workout templates in mongodb"
+
+2. **Understanding**: The user wants to update the seed data and reset script to use the current 4 saved workout templates from MongoDB instead of the default templates (Push Day, Pull Day, Leg Day). This ensures that when the database is reset or seeded, it will contain the same workout templates that are currently being used.
+
+3. **Actions Taken**:
+   - Retrieved the current 4 saved workout templates from MongoDB using a Node.js script
+   - Identified the template structure and details for each of the 4 templates:
+     - (1/4) 2DFB Barbell Squat
+     - (2/4) 2DFB Bench Press
+     - (3/4) 32DFB Deadlift
+     - (4/4) 2DFB Barbell Row
+   - Updated the resetDatabase.js script to replace the default templates with the current 4 templates
+   - Updated the seed.js file to use the same 4 templates
+   - Maintained proper exercise references and IDs in both files
+   - Preserved all exercise details including sets, reps, and categories
+   - Updated the CHANGES.md file to document these changes
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/server/scripts/resetDatabase.js`
+   - `/home/jasonpovey/repos/gym-tracker/server/seed.js`
    - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
    - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`

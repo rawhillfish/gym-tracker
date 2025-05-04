@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const WorkoutTemplate = require('../models/WorkoutTemplate');
+const mongoose = require('mongoose');
 
 // Get all workout templates
 router.get('/', async (req, res) => {
@@ -52,16 +53,64 @@ router.post('/', async (req, res) => {
 // Update a workout template
 router.put('/:id', async (req, res) => {
   try {
-    const template = await WorkoutTemplate.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    if (!template) {
+    console.log('Updating workout template:', req.params.id);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
+    // First get the existing template
+    const existingTemplate = await WorkoutTemplate.findById(req.params.id);
+    if (!existingTemplate) {
       return res.status(404).json({ message: 'Workout template not found' });
     }
-    res.json(template);
+    
+    // Update fields individually to avoid issues with nested arrays
+    existingTemplate.name = req.body.name;
+    existingTemplate.description = req.body.description;
+    
+    // Handle exercises separately to ensure proper updating
+    if (req.body.exercises && Array.isArray(req.body.exercises)) {
+      // Validate that each exercise has a valid exerciseId
+      const validExercises = req.body.exercises.map(exercise => {
+        // Ensure exerciseId is present, or generate one if missing
+        const exerciseId = exercise.exerciseId || 
+                          exercise._id || 
+                          `exercise-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        
+        // Create a clean exercise object without problematic _id field
+        const cleanExercise = {
+          exerciseId: exerciseId,
+          name: exercise.name,
+          category: exercise.category,
+          sets: parseInt(exercise.sets) || 3,
+          reps: parseInt(exercise.reps) || 10
+        };
+        
+        // Only add _id if it's a valid ObjectId, otherwise omit it
+        if (exercise._id) {
+          try {
+            if (mongoose.Types.ObjectId.isValid(exercise._id)) {
+              cleanExercise._id = exercise._id;
+            } else {
+              console.log(`Skipping invalid _id: ${exercise._id} for exercise: ${exercise.name}`);
+            }
+          } catch (err) {
+            console.log(`Error processing _id: ${err.message}`);
+          }
+        }
+        
+        return cleanExercise;
+      });
+      
+      console.log('Processed exercises for update:', JSON.stringify(validExercises, null, 2));
+      existingTemplate.exercises = validExercises;
+    }
+    
+    // Save the updated template
+    const updatedTemplate = await existingTemplate.save();
+    console.log('Template updated successfully');
+    
+    res.json(updatedTemplate);
   } catch (error) {
+    console.error('Error updating workout template:', error);
     res.status(400).json({ message: error.message });
   }
 });

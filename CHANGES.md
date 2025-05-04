@@ -4,6 +4,88 @@ This document tracks all significant changes made to the Gym Tracker application
 
 ## 2025-05-04
 
+### Bug Fixes
+- Fixed issue with workout template editing where changing reps for one exercise would affect all exercises
+  - Updated the server-side PUT route to handle nested arrays properly
+  - Improved the client-side template data handling to create proper deep copies
+  - Added detailed logging to track template updates
+  - Fixed handleEditTemplate to create deep copies of exercises when editing a template
+  - Enhanced updateExerciseParams to use a more robust approach for updating specific exercises
+  - Ensured each exercise has a unique ID by adding timestamp-based IDs when needed
+  - Added comprehensive debug logging throughout the template editing process
+  - Fixed object reference issues by creating completely new objects for each exercise
+  - Improved error handling to prevent updates when exercise IDs cannot be found
+  - Reverted to using map with spread operator for updating exercises to fix issues with editing reps and sets
+  - Ensured proper ID handling throughout the exercise editing process
+  - Used JSON.parse(JSON.stringify()) for deep cloning to prevent reference issues
+
+- Fixed ESLint errors in ActiveWorkout.js
+  - Moved helper functions (findTemplateIdByName and findExerciseIdByName) to component level
+  - Added proper scoping for helper functions to ensure they're available throughout the component
+  - Restored missing functions and components that were accidentally removed:
+    - Added back fetchPreviousWorkoutData function for retrieving workout history
+    - Restored ExerciseSet component for rendering workout sets
+    - Re-implemented addExercise and removeExercise functions
+
+- Fixed issue with "Update Template" button not working
+  - Added proper exerciseId field to each exercise in the template
+  - Updated handleSaveTemplate to ensure exerciseId is always set
+  - Enhanced the server-side PUT route to validate and handle exerciseId properly
+  - Improved error handling and logging for template updates
+  - Added fallback ID generation for exercises missing exerciseId
+  - Fixed the WorkoutBuilder component to maintain proper IDs during template editing
+  - Fixed MongoDB validation error by making the _id field in exercises more flexible
+  - Added isValidObjectId helper function to check if an ID is a valid MongoDB ObjectId
+  - Updated the WorkoutTemplate schema to accept string IDs in the exercises array
+  - Modified the server-side code to handle both string and ObjectId types for _id
+  - Improved client-side code to use temporary IDs for tracking and avoid sending invalid ObjectIds
+
+### Data Management
+- Updated seed data and reset script with current workout templates
+  - Replaced default workout templates (Push Day, Pull Day, Leg Day) with the current 4 saved templates
+  - Updated both resetDatabase.js script and seed.js to use the same templates
+  - Maintained proper exercise references and IDs in the templates
+  - Ensured consistent naming convention for templates (1/4, 2/4, 3/4, 4/4)
+  - Preserved all exercise details including sets, reps, and categories
+
+### Workout Tracking
+- Modified weight pre-filling logic:
+  - Now only pre-fills weights from previous workouts of the same template
+  - Improved exercise matching to ensure correct weights are used
+  - Updated UI messages to clarify that weights come from the same template
+  - Enhanced logging for better debugging of weight pre-filling
+  - Fixed issue where weights were not being pre-filled due to strict template name matching
+  - Added more flexible template name matching with exact, partial, and fallback options
+  - Improved detection of pre-filled weights to exclude empty strings and zeros
+  - Enhanced template matching to use template IDs as the primary matching criteria
+  - Added a second sample workout with different template ID for testing
+  - Removed name-based template matching fallbacks - now strictly matches by template ID only
+  - Will not pre-fill weights if no exact template ID match is found
+  - Fixed issue with completed workouts not storing templateId in the database
+  - Updated CompletedWorkout model to include templateId field
+  - Enhanced exercise matching to use exercise IDs first, with fallback to name matching
+  - Updated CompletedWorkout model to require exerciseId for each exercise
+  - Created migration script to add missing templateId and exerciseId fields to existing workouts
+  - Added detailed logging for weight pre-filling to help diagnose matching issues
+  - Fixed bug in exercise ID matching by checking all possible ID field names (exerciseId, _id, id)
+  - Ensured exerciseId is explicitly set when creating new workouts and completing workouts
+  - Added deep copy of workout data before completing to avoid modifying the original
+  - Updated Exercise model to include exerciseId field
+  - Created migration script to add exerciseId to all exercises in the database
+  - Fixed ID field priority order to match MongoDB's convention (_id first, then other fields)
+  - Created a debug page to inspect and fix ID issues in the database
+  - Added API endpoints to fix exercise IDs and workout IDs
+  - Updated the completed workout creation process to ensure IDs are always set
+  - Created a comprehensive fixAllIds.js script to fix all ID issues in one operation
+  - Fixed weight pre-filling by prioritizing database data over localStorage data
+  - Added dynamic template and exercise ID lookups to replace hardcoded values
+  - Improved data flow to ensure completed workouts have correct template and exercise IDs
+  - Enhanced the finishWorkout function to properly save template and exercise IDs
+  - Added helper functions to find template and exercise IDs by name
+  - Updated server-side code to dynamically look up IDs instead of using hardcoded values
+  - Fixed the CompletedWorkout model to properly handle template and exercise IDs
+  - Added automatic clearing of localStorage to ensure fresh data is used
+
 ### Deployment
 - Deployed application to production:
   - Frontend deployed to Netlify
@@ -11,6 +93,13 @@ This document tracks all significant changes made to the Gym Tracker application
   - Database migrated to MongoDB Atlas production instance
   - Updated environment variables for production settings
   - Verified application functionality in production environment
+- Created database update scripts for production:
+  - Added `scripts/update-production-db.js` with interactive confirmation for manual updates
+  - Added `scripts/update-production-db-noninteractive.js` for automated CI/CD pipeline updates
+  - Scripts preserve existing user data and workout history
+  - Update exercises with latest categories and names
+  - Update workout templates with latest exercise references
+  - Update completed workouts to reference new exercise IDs
 
 ## 2025-04-25
 

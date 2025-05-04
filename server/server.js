@@ -67,57 +67,142 @@ const checkAndSeedDatabase = async () => {
       
       // Seed Users
       const users = await User.create([
+        { name: 'Default User', color: '#2196f3' },
         { name: 'Jason', color: '#2196f3' },
-        { name: 'Sarah', color: '#f44336' },
-        { name: 'Mike', color: '#4caf50' }
+        { name: 'Andrew', color: '#f44336' }
       ]);
       console.log(`${users.length} users seeded successfully`);
       
       // Seed Exercises
       const exercises = await Exercise.create([
         { name: 'Bench Press', defaultReps: 8, category: 'Chest' },
-        { name: 'Squat', defaultReps: 8, category: 'Legs' },
-        { name: 'Deadlift', defaultReps: 8, category: 'Back' },
         { name: 'Shoulder Press', defaultReps: 8, category: 'Shoulders' },
+        { name: 'Dips', defaultReps: 10, category: 'Chest' },
+        { name: 'Tricep Extensions', defaultReps: 12, category: 'Arms' },
+        { name: 'Deadlift', defaultReps: 5, category: 'Back' },
         { name: 'Barbell Row', defaultReps: 8, category: 'Back' },
         { name: 'Pull Ups', defaultReps: 8, category: 'Back' },
-        { name: 'Dips', defaultReps: 8, category: 'Chest' },
         { name: 'Bicep Curls', defaultReps: 12, category: 'Arms' },
-        { name: 'Tricep Extensions', defaultReps: 12, category: 'Arms' },
-        { name: 'Leg Press', defaultReps: 12, category: 'Legs' },
-        { name: 'Calf Raises', defaultReps: 15, category: 'Legs' },
-        { name: 'Lateral Raises', defaultReps: 15, category: 'Shoulders' },
-        { name: 'Face Pulls', defaultReps: 15, category: 'Shoulders' }
+        { name: 'Barbell Squat', defaultReps: 8, category: 'Legs (Quads)' },
+        { name: 'Romanian Deadlift', defaultReps: 10, category: 'Legs (Hamstring)' },
+        { name: 'Leg Press', defaultReps: 12, category: 'Legs (Quads)' },
+        { name: 'Calf Raises', defaultReps: 15, category: 'Legs (Calves)' }
       ]);
       console.log(`${exercises.length} exercises seeded successfully`);
       
-      // Seed Workout Templates
+      // Get all exercises to reference in templates
+      const allExercises = await Exercise.find({});
+      
+      // Helper function to find exercise by name and get its ID
+      const findExerciseIdByName = (name) => {
+        const exercise = allExercises.find(e => e.name === name);
+        if (!exercise) {
+          console.warn(`Exercise not found: ${name}`);
+          return null;
+        }
+        return exercise._id;
+      };
+      
+      // Seed Workout Templates with exercise IDs
       const pushTemplate = {
         name: 'Push Day',
         exercises: [
-          { name: 'Bench Press', sets: 4, reps: 8 },
-          { name: 'Shoulder Press', sets: 3, reps: 10 },
-          { name: 'Dips', sets: 3, reps: 12 },
-          { name: 'Tricep Extensions', sets: 3, reps: 12 }
+          {
+            name: 'Bench Press',
+            sets: 3,
+            reps: 8,
+            exerciseId: findExerciseIdByName('Bench Press'),
+            category: 'Chest'
+          },
+          {
+            name: 'Shoulder Press',
+            sets: 3,
+            reps: 8,
+            exerciseId: findExerciseIdByName('Shoulder Press'),
+            category: 'Shoulders'
+          },
+          {
+            name: 'Dips',
+            sets: 3,
+            reps: 10,
+            exerciseId: findExerciseIdByName('Dips'),
+            category: 'Chest'
+          },
+          {
+            name: 'Tricep Extensions',
+            sets: 3,
+            reps: 12,
+            exerciseId: findExerciseIdByName('Tricep Extensions'),
+            category: 'Arms'
+          }
         ]
       };
       
       const pullTemplate = {
         name: 'Pull Day',
         exercises: [
-          { name: 'Deadlift', sets: 3, reps: 8 },
-          { name: 'Barbell Row', sets: 3, reps: 10 },
-          { name: 'Pull Ups', sets: 3, reps: 8 },
-          { name: 'Bicep Curls', sets: 3, reps: 12 }
+          {
+            name: 'Deadlift',
+            sets: 3,
+            reps: 5,
+            exerciseId: findExerciseIdByName('Deadlift'),
+            category: 'Back'
+          },
+          {
+            name: 'Barbell Row',
+            sets: 3,
+            reps: 8,
+            exerciseId: findExerciseIdByName('Barbell Row'),
+            category: 'Back'
+          },
+          {
+            name: 'Pull Ups',
+            sets: 3,
+            reps: 8,
+            exerciseId: findExerciseIdByName('Pull Ups'),
+            category: 'Back'
+          },
+          {
+            name: 'Bicep Curls',
+            sets: 3,
+            reps: 12,
+            exerciseId: findExerciseIdByName('Bicep Curls'),
+            category: 'Arms'
+          }
         ]
       };
       
       const legTemplate = {
         name: 'Leg Day',
         exercises: [
-          { name: 'Squat', sets: 4, reps: 8 },
-          { name: 'Leg Press', sets: 3, reps: 12 },
-          { name: 'Calf Raises', sets: 3, reps: 15 }
+          {
+            name: 'Barbell Squat',
+            sets: 4,
+            reps: 8,
+            exerciseId: findExerciseIdByName('Barbell Squat'),
+            category: 'Legs (Quads)'
+          },
+          {
+            name: 'Romanian Deadlift',
+            sets: 3,
+            reps: 10,
+            exerciseId: findExerciseIdByName('Romanian Deadlift'),
+            category: 'Legs (Hamstring)'
+          },
+          {
+            name: 'Leg Press',
+            sets: 3,
+            reps: 12,
+            exerciseId: findExerciseIdByName('Leg Press'),
+            category: 'Legs (Quads)'
+          },
+          {
+            name: 'Calf Raises',
+            sets: 4,
+            reps: 15,
+            exerciseId: findExerciseIdByName('Calf Raises'),
+            category: 'Legs (Calves)'
+          }
         ]
       };
       
@@ -126,8 +211,16 @@ const checkAndSeedDatabase = async () => {
         pullTemplate,
         legTemplate
       ]);
-      console.log(`${templates.length} workout templates seeded successfully`);
       
+      // Log the created templates with their IDs for reference
+      templates.forEach(template => {
+        console.log(`Template: ${template.name}, ID: ${template._id}`);
+        template.exercises.forEach(exercise => {
+          console.log(`  Exercise: ${exercise.name}, ID: ${exercise.exerciseId}`);
+        });
+      });
+      
+      console.log(`${templates.length} workout templates seeded successfully`);
       console.log('Database seeding completed successfully!');
     } else {
       console.log('Database already contains data, skipping automatic seeding.');

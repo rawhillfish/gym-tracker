@@ -7,6 +7,13 @@ const ExerciseSchema = new mongoose.Schema({
     trim: true,
     unique: true
   },
+  exerciseId: {
+    type: String,
+    default: function() {
+      // Default to the string representation of the _id
+      return this._id ? this._id.toString() : null;
+    }
+  },
   defaultReps: {
     type: Number,
     default: 8

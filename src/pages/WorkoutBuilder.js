@@ -81,21 +81,48 @@ const WorkoutBuilder = ({ isSubTab = false }) => {
       .catch(err => console.error('Error fetching retired templates:', err));
   }, []);
 
+  // Helper function to check if a string is a valid MongoDB ObjectId
+  const isValidObjectId = (id) => {
+    return id && /^[0-9a-fA-F]{24}$/.test(id);
+  };
+
   const handleSaveTemplate = async () => {
     try {
-      console.log('Saving template...');
+      console.log('===== SAVE TEMPLATE DEBUG =====');
+      console.log('Current selectedExercises:', selectedExercises);
+      
+      // Create a deep copy of the selected exercises to avoid reference issues
+      const exercisesCopy = selectedExercises.map(ex => {
+        // Ensure each exercise has a valid exerciseId
+        const exerciseId = ex.exerciseId || 
+                          (isValidObjectId(ex._id) ? ex._id : null) || 
+                          `exercise-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        
+        // Only include the necessary fields for the API
+        const exerciseCopy = {
+          exerciseId: exerciseId, // Ensure exerciseId is always set
+          name: ex.name,
+          category: ex.category,
+          sets: parseInt(ex.sets) || 3,
+          reps: parseInt(ex.reps) || 10
+        };
+        
+        // Only add _id if it's a valid MongoDB ObjectId
+        if (isValidObjectId(ex._id)) {
+          exerciseCopy._id = ex._id;
+        }
+        
+        console.log(`Saving exercise: ${exerciseCopy.name}, ID: ${exerciseCopy._id || 'none'}, exerciseId: ${exerciseCopy.exerciseId}, sets: ${exerciseCopy.sets}, reps: ${exerciseCopy.reps}`);
+        return exerciseCopy;
+      });
+
       const templateData = {
         name: newTemplate.name,
         description: newTemplate.description,
-        exercises: selectedExercises.map(ex => ({
-          exerciseId: ex._id,
-          name: ex.name,
-          category: ex.category,
-          sets: ex.sets,
-          reps: ex.reps
-        }))
+        exercises: exercisesCopy
       };
-      console.log('Template data:', templateData);
+      console.log('Template data:', JSON.stringify(templateData, null, 2));
+      console.log('===== END SAVE TEMPLATE DEBUG =====');
 
       if (editingTemplate) {
         console.log('Updating existing template:', editingTemplate._id);
@@ -133,12 +160,43 @@ const WorkoutBuilder = ({ isSubTab = false }) => {
   };
 
   const handleEditTemplate = (template) => {
+    console.log('===== EDIT TEMPLATE DEBUG =====');
+    console.log('Editing template:', template);
+    
     setEditingTemplate(template);
     setNewTemplate({
       name: template.name,
       description: template.description,
     });
-    setSelectedExercises(template.exercises);
+    
+    // Create deep copies of the exercises to prevent reference issues
+    const exercisesCopy = template.exercises.map((ex, index) => {
+      // Generate a temporary ID for new exercises or those without valid ObjectIds
+      const tempId = `temp-exercise-${index}-${Date.now()}`;
+      
+      // Determine the best ID to use
+      const exerciseId = ex.exerciseId || 
+                        (isValidObjectId(ex._id) ? ex._id : null) || 
+                        tempId;
+      
+      // Make sure we preserve the original _id for proper updating if it's valid
+      const exerciseCopy = {
+        name: ex.name,
+        category: ex.category,
+        sets: parseInt(ex.sets) || 3,
+        reps: parseInt(ex.reps) || 10,
+        exerciseId: exerciseId,
+        _id: tempId // Always use a temporary ID for client-side tracking
+      };
+      
+      console.log(`Copied exercise: ${exerciseCopy.name}, temp ID: ${exerciseCopy._id}, exerciseId: ${exerciseCopy.exerciseId}, sets: ${exerciseCopy.sets}, reps: ${exerciseCopy.reps}`);
+      return exerciseCopy;
+    });
+    
+    console.log('Deep copied exercises:', exercisesCopy);
+    console.log('===== END EDIT TEMPLATE DEBUG =====');
+    
+    setSelectedExercises(exercisesCopy);
     setShowCreateForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -231,12 +289,51 @@ const WorkoutBuilder = ({ isSubTab = false }) => {
   };
 
   const updateExerciseParams = (exerciseId, field, value) => {
+    console.log(`===== EXERCISE UPDATE DEBUG =====`);
+    console.log(`Updating exercise ${exerciseId}, field: ${field}, value: ${value}`);
+    console.log(`Current selectedExercises:`, selectedExercises);
+    
+    // First, check if the exerciseId exists in any of the exercises
+    const exerciseExists = selectedExercises.some(ex => ex._id === exerciseId);
+    console.log(`Exercise with ID ${exerciseId} exists: ${exerciseExists}`);
+    
+    if (!exerciseExists) {
+      console.error(`Cannot find exercise with ID ${exerciseId} in selectedExercises`);
+      return; // Don't update if we can't find the exercise
+    }
+    
+    // Create a completely new array with completely new objects
     const newSelectedExercises = selectedExercises.map(ex => {
-      if (ex._id === exerciseId) {
-        return { ...ex, [field]: parseInt(value) || 0 };
+      // Create a completely new object for each exercise
+      const newEx = { ...ex };
+      
+      // Only update the specific exercise that matches the ID
+      if (newEx._id === exerciseId) {
+        console.log(`Found matching exercise: ${newEx.name}, updating ${field} from ${newEx[field]} to ${value}`);
+        newEx[field] = parseInt(value) || 0;
+        console.log(`Updated exercise object:`, newEx);
+      } else {
+        console.log(`Skipping exercise: ${newEx.name} (ID: ${newEx._id})`);
       }
-      return ex;
+      
+      return newEx;
     });
+    
+    console.log(`New selectedExercises array:`, newSelectedExercises);
+    
+    // Debug: Check if multiple exercises were updated
+    let updatedCount = 0;
+    selectedExercises.forEach((ex, index) => {
+      if (ex[field] !== newSelectedExercises[index][field]) {
+        console.log(`Exercise ${ex.name} (ID: ${ex._id}) was updated from ${ex[field]} to ${newSelectedExercises[index][field]}`);
+        updatedCount++;
+      }
+    });
+    
+    console.log(`Updated ${updatedCount} exercises`);
+    console.log(`===== END EXERCISE UPDATE DEBUG =====`);
+    
+    // Set the new state with the completely new array
     setSelectedExercises(newSelectedExercises);
   };
   

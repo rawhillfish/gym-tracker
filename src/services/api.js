@@ -167,8 +167,52 @@ const apiService = {
   },
 
   // Completed Workouts
-  getCompletedWorkouts: () => api.get('/api/completed-workouts'),
-  createCompletedWorkout: (data) => api.post('/api/completed-workouts', data),
+  getCompletedWorkouts: async () => {
+    try {
+      console.log('API Service - Fetching completed workouts');
+      const response = await api.get('/api/completed-workouts');
+      console.log(`API Service - Fetched ${response.data?.length || 0} completed workouts`);
+      
+      // Debug the response
+      if (response.data && Array.isArray(response.data)) {
+        console.log('API Service - First workout template ID:', response.data[0]?.templateId);
+      } else {
+        console.log('API Service - No completed workouts found or invalid format');
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('API Service - Error fetching completed workouts:', error);
+      return { data: [] };
+    }
+  },
+  createCompletedWorkout: (data) => {
+    // Log the original data for debugging
+    console.log('API Service - Creating completed workout with data:', JSON.stringify({
+      templateId: data.templateId,
+      templateName: data.templateName,
+      exercises: data.exercises?.length,
+      exerciseIds: data.exercises?.map(ex => ({ name: ex.name, exerciseId: ex.exerciseId }))
+    }, null, 2));
+    
+    // Don't modify the templateId if it's already set
+    // Only set a fallback if it's missing
+    const workoutData = {
+      ...data,
+      templateId: data.templateId || 'unknown-template'
+    };
+    
+    // Don't modify exerciseId if it's already set
+    // Only set a fallback if it's missing
+    if (workoutData.exercises && Array.isArray(workoutData.exercises)) {
+      workoutData.exercises = workoutData.exercises.map(exercise => ({
+        ...exercise,
+        exerciseId: exercise.exerciseId || 'unknown-exercise'
+      }));
+    }
+    
+    return api.post('/api/completed-workouts', workoutData);
+  },
   getCompletedWorkoutById: (id) => api.get(`/api/completed-workouts/${id}`),
   updateCompletedWorkout: (id, data) => api.put(`/api/completed-workouts/${id}`, data),
   deleteCompletedWorkout: (id) => api.delete(`/api/completed-workouts/${id}`),

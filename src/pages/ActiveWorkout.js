@@ -22,14 +22,14 @@ import { useNavigate } from 'react-router-dom';
 import WorkoutTimer from '../components/WorkoutTimer';
 
 const motivationalMessages = [
-  "💪 Amazing work! You're getting stronger every day!",
-  "🔥 Another workout crushed! Keep pushing your limits!",
-  "⭐ You showed up and put in the work - that's what counts!",
-  "🎯 Great job staying committed to your fitness goals!",
-  "🌟 Every rep brings you closer to your best self!",
-  "💫 You're building a stronger, healthier you!",
-  "🏆 Champion mindset - showing up and giving it your all!",
-  "⚡ Your dedication is inspiring - keep it up!",
+  "Amazing work! You're getting stronger every day!",
+  "Another workout crushed! Keep pushing your limits!",
+  "You showed up and put in the work - that's what counts!",
+  "Great job staying committed to your fitness goals!",
+  "Every rep brings you closer to your best self!",
+  "You're building a stronger, healthier you!",
+  "Champion mindset - showing up and giving it your all!",
+  "Your dedication is inspiring - keep it up!",
 ];
 
 // Calculate duration between two timestamps
@@ -109,6 +109,14 @@ const ActiveWorkout = () => {
   const [previousWorkouts, setPreviousWorkouts] = useState([]);
 
   useEffect(() => {
+    // Clear localStorage to ensure we're using database data
+    try {
+      localStorage.removeItem('completedWorkouts');
+      console.log('Cleared completedWorkouts from localStorage to ensure fresh data');
+    } catch (error) {
+      console.error('Error clearing localStorage:', error);
+    }
+    
     // Fetch workout templates
     apiService.getWorkoutTemplates()
       .then(response => {
@@ -169,8 +177,8 @@ const ActiveWorkout = () => {
       .catch(err => console.error('Error fetching exercises:', err));
   }, []);
 
-  // Save active workouts to localStorage whenever they change
   useEffect(() => {
+    // Save active workouts to localStorage whenever they change
     try {
       if (activeWorkouts.length > 0) {
         localStorage.setItem('activeWorkouts', JSON.stringify(activeWorkouts));
@@ -182,14 +190,855 @@ const ActiveWorkout = () => {
     }
   }, [activeWorkouts]);
 
-  // Function to remove an exercise from a workout
-  const removeExercise = (workoutIndex, exerciseIndex) => {
-    const updatedWorkouts = [...activeWorkouts];
-    updatedWorkouts[workoutIndex].exercises.splice(exerciseIndex, 1);
-    setActiveWorkouts(updatedWorkouts);
+  // Debug function to check for completed workouts
+  const checkCompletedWorkouts = async () => {
+    try {
+      console.log('Checking for completed workouts...');
+      const response = await apiService.getCompletedWorkouts();
+      const completedWorkouts = response?.data || [];
+      console.log(`Found ${completedWorkouts.length} completed workouts`);
+      
+      // Log the raw data for inspection
+      console.log('Raw completed workouts data:');
+      if (Array.isArray(completedWorkouts)) {
+        completedWorkouts.forEach((workout, index) => {
+          console.log(`\nWorkout ${index + 1} raw data:`, JSON.stringify(workout, null, 2));
+        });
+        
+        completedWorkouts.forEach((workout, index) => {
+          console.log(`\nWorkout ${index + 1}:`);
+          console.log(`Template ID: ${workout.templateId}`);
+          console.log(`Template Name: ${workout.templateName}`);
+          console.log(`Exercises: ${workout.exercises?.length || 0}`);
+          
+          if (workout.exercises && workout.exercises.length > 0) {
+            workout.exercises.forEach((ex, exIndex) => {
+              console.log(`  Exercise ${exIndex + 1}: ${ex.name} (ID: ${ex.exerciseId})`);
+              if (ex.sets && ex.sets.length > 0) {
+                console.log(`    Sets: ${ex.sets.length}`);
+                console.log(`    Completed sets: ${ex.sets.filter(s => s.completed).length}`);
+                console.log(`    Weights: ${ex.sets.map(s => s.weight).join(', ')}`);
+              }
+            });
+          }
+        });
+        
+        // Check for Leg Day workouts specifically
+        const legDayWorkouts = completedWorkouts.filter(w => w.templateName === 'Leg Day');
+        console.log(`\nFound ${legDayWorkouts.length} Leg Day workouts`);
+        
+        legDayWorkouts.forEach((workout, index) => {
+          console.log(`\nLeg Day Workout ${index + 1}:`);
+          console.log(`Template ID: ${workout.templateId}`);
+          console.log(`Template ID type: ${typeof workout.templateId}`);
+        });
+        
+        // Check if any workouts match our hardcoded ID
+        const matchingIdWorkouts = completedWorkouts.filter(w => 
+          w.templateId === '6816fa23d7a9453c69acdddc' || 
+          w.templateId === '6816fa22d7a9453c69acdddc'
+        );
+        
+        console.log(`\nWorkouts matching our hardcoded IDs: ${matchingIdWorkouts.length}`);
+        matchingIdWorkouts.forEach((workout, index) => {
+          console.log(`Matching workout ${index + 1}: ${workout.templateName} (ID: ${workout.templateId})`);
+        });
+      } else {
+        console.log('No completed workouts found or invalid data format');
+      }
+    } catch (error) {
+      console.error('Error checking completed workouts:', error);
+    }
+  };
+  
+  // Call the debug function on component mount
+  useEffect(() => {
+    checkCompletedWorkouts();
+  }, []);
+
+  // Helper function to find template ID by name
+  const findTemplateIdByName = (templateName) => {
+    if (!workoutTemplates || !Array.isArray(workoutTemplates)) {
+      console.log('No workout templates available for lookup');
+      return null;
+    }
     
-    // We don't need to save to localStorage here as the useEffect will handle it
-    // This is different from the set-level functions where we need immediate saving
+    const template = workoutTemplates.find(t => t.name === templateName);
+    if (template && template._id) {
+      console.log(`Found template ID for ${templateName}: ${template._id}`);
+      return template._id;
+    }
+    
+    console.log(`No template found with name: ${templateName}`);
+    return null;
+  };
+  
+  // Helper function to find exercise ID by name within a template
+  const findExerciseIdByName = (templateName, exerciseName) => {
+    if (!workoutTemplates || !Array.isArray(workoutTemplates)) {
+      console.log('No workout templates available for lookup');
+      return null;
+    }
+    
+    const template = workoutTemplates.find(t => t.name === templateName);
+    if (!template || !template.exercises || !Array.isArray(template.exercises)) {
+      console.log(`No exercises found for template: ${templateName}`);
+      return null;
+    }
+    
+    const exercise = template.exercises.find(e => e.name === exerciseName);
+    if (exercise && exercise._id) {
+      console.log(`Found exercise ID for ${exerciseName} in template ${templateName}: ${exercise._id}`);
+      return exercise._id;
+    }
+    
+    console.log(`No exercise found with name: ${exerciseName} in template ${templateName}`);
+    return null;
+  };
+
+  // Function to get the most recent weights used for a specific exercise by a user
+  const getLastUsedWeights = (previousWorkouts, exercise, targetSetsCount, template) => {
+    // Find the template ID and exercise ID
+    const templateId = findTemplateIdByName(template.name);
+    const exerciseId = findExerciseIdByName(template.name, exercise.name);
+    
+    console.log(`Looking for previous weights for exercise: ${exercise.name} (ID: ${exerciseId}) in template: ${template.name} (ID: ${templateId})`);
+    
+    // Safety check for empty or invalid previousWorkouts
+    if (!previousWorkouts || !Array.isArray(previousWorkouts) || previousWorkouts.length === 0) {
+      console.log('No previous workouts available, returning empty weights');
+      return Array(targetSetsCount).fill('');
+    }
+    
+    // Sort workouts by date (newest first) if not already sorted
+    const sortedWorkouts = [...previousWorkouts].sort((a, b) => {
+      // Defensive check for missing endTime
+      if (!a.endTime || !b.endTime) {
+        console.log('Warning: Missing endTime in workout data');
+        return 0;
+      }
+      return new Date(b.endTime) - new Date(a.endTime);
+    });
+
+    console.log(`Sorted ${sortedWorkouts.length} workouts by date`);
+    
+    // Only find workouts with the matching template ID
+    const matchingWorkouts = sortedWorkouts.filter(workout => {
+      const workoutTemplateId = workout.templateId ? workout.templateId.toString() : '';
+      const currentTemplateId = templateId ? templateId.toString() : '';
+      
+      console.log(`Comparing workout templateId: '${workoutTemplateId}' with current templateId: '${currentTemplateId}'`);
+      console.log(`Types: workout templateId (${typeof workoutTemplateId}), current templateId (${typeof currentTemplateId})`);
+      
+      // Compare as strings
+      let hasMatchingId = workoutTemplateId && currentTemplateId && workoutTemplateId === currentTemplateId;
+      
+      return hasMatchingId;
+    });
+    
+    if (matchingWorkouts.length === 0) {
+      console.log(`No template ID match found for ID: ${templateId}, not pre-filling weights`);
+      return Array(targetSetsCount).fill('');
+    }
+    
+    console.log(`Found ${matchingWorkouts.length} workouts with matching template ID`);
+    return findWeightsInWorkouts(matchingWorkouts, exerciseId, exercise.name, targetSetsCount);
+  };
+  
+  // Helper function to find weights in workouts
+  const findWeightsInWorkouts = (workouts, exerciseId, exerciseName, targetSetsCount) => {
+    // Find the most recent workout that contains this exercise
+    for (const workout of workouts) {
+      console.log(`\nChecking workout: ${workout.templateName} (ID: ${workout.templateId}) from ${workout.endTime}`);
+      console.log(`Workout exercises: ${workout.exercises ? workout.exercises.length : 0}`);
+      
+      // Defensive check for missing exercises array
+      if (!workout.exercises || !Array.isArray(workout.exercises)) {
+        console.log('Warning: Workout missing exercises array');
+        continue;
+      }
+      
+      // Log all exercises in this workout for debugging
+      workout.exercises.forEach((ex, index) => {
+        const exId = ex.exerciseId || ex._id || ex.id;
+        console.log(`Workout exercise ${index + 1}: Name: ${ex.name}, ID: ${exId || 'unknown'}`);
+      });
+      
+      // First try to match by exercise ID
+      console.log(`\nTrying to match exercise by ID: ${exerciseId}`);
+      let matchingExercise = workout.exercises.find(ex => {
+        if (!ex) return false;
+        
+        // Check all possible ID fields - prioritize exerciseId
+        const exId = ex.exerciseId || ex._id || ex.id;
+        console.log(`Comparing exercise IDs: '${exId}' with '${exerciseId}'`);
+        console.log(`Types: exercise ID (${typeof exId}), target ID (${typeof exerciseId})`);
+        
+        // Try different comparison methods
+        let exactMatch = exId === exerciseId;
+        let stringMatch = exId && exerciseId && exId.toString() === exerciseId.toString();
+        
+        return exactMatch || stringMatch;
+      });
+      
+      // If no ID match, fall back to name matching
+      if (!matchingExercise) {
+        console.log(`\nNo exercise ID match found, trying name matching`);
+        
+        matchingExercise = workout.exercises.find(ex => {
+          // Defensive check for missing exercise name
+          if (!ex || !ex.name) {
+            console.log('Warning: Exercise missing name');
+            return false;
+          }
+          
+          // Normalize both names for comparison (remove extra spaces, case insensitive)
+          const normalizedExName = ex.name.toLowerCase().trim();
+          const normalizedTargetName = exerciseName.toLowerCase().trim();
+          
+          console.log(`Comparing names: '${normalizedExName}' with '${normalizedTargetName}'`);
+          
+          // Check for exact match or if the name contains the target name
+          const exactNameMatch = normalizedExName === normalizedTargetName;
+          const exIncludesTarget = normalizedExName.includes(normalizedTargetName);
+          const targetIncludesEx = normalizedTargetName.includes(normalizedExName);
+          const isMatch = exactNameMatch || exIncludesTarget || targetIncludesEx;
+                 
+          return isMatch;
+        });
+      }
+
+      if (matchingExercise) {
+        console.log(`\nFound matching exercise: ${matchingExercise.name}`);
+        console.log(`Workout source: ${workout._id === 'sample-workout-1' ? 'SAMPLE DATA' : 'Real data'}`);
+      } else {
+        console.log(`\nNo matching exercise found in this workout`);
+        continue;
+      }
+
+      if (matchingExercise && matchingExercise.sets && matchingExercise.sets.length > 0) {
+        console.log(`Exercise has ${matchingExercise.sets.length} sets`);
+        
+        // Get weights from completed sets
+        const completedSets = matchingExercise.sets.filter(set => set.completed);
+        console.log(`Found ${completedSets.length} completed sets`);
+        
+        if (completedSets.length > 0) {
+          // Map the completed sets to their weights, converting null to empty string
+          const weights = completedSets.map(set => set.weight !== null ? set.weight : '');
+          console.log(`Extracted weights from completed sets: ${JSON.stringify(weights)}`);
+          
+          // If we have fewer completed sets than target sets, repeat the last weight
+          while (weights.length < targetSetsCount) {
+            const lastWeight = weights[weights.length - 1] || '';
+            weights.push(lastWeight);
+          }
+          
+          // If we have more completed sets than target sets, trim the array
+          const result = weights.slice(0, targetSetsCount);
+          console.log(`Final weights to use: ${JSON.stringify(result)}`);
+          console.log(`=== END WEIGHT PRE-FILLING DEBUG ===`);
+          return result;
+        } else {
+          // If no completed sets, use all sets
+          const weights = matchingExercise.sets.map(set => set.weight !== null ? set.weight : '');
+          console.log(`No completed sets, using all set weights: ${JSON.stringify(weights)}`);
+          
+          // Adjust array length to match target sets count
+          while (weights.length < targetSetsCount) {
+            const lastWeight = weights[weights.length - 1] || '';
+            weights.push(lastWeight);
+          }
+          
+          const result = weights.slice(0, targetSetsCount);
+          console.log(`Final weights to use: ${JSON.stringify(result)}`);
+          console.log(`=== END WEIGHT PRE-FILLING DEBUG ===`);
+          return result;
+        }
+      }
+    }
+    
+    console.log('No suitable previous workout found, returning empty weights');
+    console.log(`=== END WEIGHT PRE-FILLING DEBUG ===`);
+    // If no previous weights found, return array of empty strings
+    return Array(targetSetsCount).fill('');
+  };
+  
+  // Function to determine if weights were pre-filled
+  const wereWeightsPrefilled = (weights) => {
+    // Check if any weight is not empty and not zero
+    return weights.some(weight => weight !== '' && weight !== '0' && weight !== 0);
+  };
+
+  // Function to load sample completed workout data for testing
+  const loadSampleCompletedWorkouts = () => {
+    console.log('Loading sample completed workout data for testing');
+    
+    // Create sample completed workout with realistic data
+    const sampleCompletedWorkouts = [
+      {
+        _id: 'sample-workout-1',
+        templateId: 'template-1',  // Make sure this matches a real template ID
+        templateName: 'Full Body Workout',
+        startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+        endTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000 + 3600000).toISOString(), // 1 hour after start
+        userId: 'user-1',
+        userName: 'Test User',
+        exercises: [
+          {
+            _id: 'ex-1',
+            name: 'Bench Press',
+            category: 'Chest',
+            sets: [
+              { weight: '135', reps: 10, completed: true },
+              { weight: '155', reps: 8, completed: true },
+              { weight: '175', reps: 6, completed: true }
+            ]
+          },
+          {
+            _id: 'ex-2',
+            name: 'Squat',
+            category: 'Legs',
+            sets: [
+              { weight: '185', reps: 10, completed: true },
+              { weight: '205', reps: 8, completed: true },
+              { weight: '225', reps: 6, completed: true }
+            ]
+          },
+          {
+            _id: 'ex-3',
+            name: 'Deadlift',
+            category: 'Back',
+            sets: [
+              { weight: '225', reps: 10, completed: true },
+              { weight: '275', reps: 8, completed: true },
+              { weight: '315', reps: 5, completed: true }
+            ]
+          }
+        ]
+      },
+      // Add another sample workout with a different template
+      {
+        _id: 'sample-workout-2',
+        templateId: 'template-2',  // Different template ID
+        templateName: 'Push Day',
+        startTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+        endTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 3600000).toISOString(), // 1 hour after start
+        userId: 'user-1',
+        userName: 'Test User',
+        exercises: [
+          {
+            _id: 'ex-4',
+            name: 'Bench Press',
+            category: 'Chest',
+            sets: [
+              { weight: '145', reps: 10, completed: true },
+              { weight: '165', reps: 8, completed: true },
+              { weight: '185', reps: 6, completed: true }
+            ]
+          },
+          {
+            _id: 'ex-5',
+            name: 'Overhead Press',
+            category: 'Shoulders',
+            sets: [
+              { weight: '95', reps: 10, completed: true },
+              { weight: '105', reps: 8, completed: true },
+              { weight: '115', reps: 6, completed: true }
+            ]
+          },
+          {
+            _id: 'ex-6',
+            name: 'Tricep Pushdown',
+            category: 'Arms',
+            sets: [
+              { weight: '50', reps: 12, completed: true },
+              { weight: '60', reps: 10, completed: true },
+              { weight: '70', reps: 8, completed: true }
+            ]
+          }
+        ]
+      }
+    ];
+    
+    // Save to localStorage
+    try {
+      localStorage.setItem('completedWorkouts', JSON.stringify(sampleCompletedWorkouts));
+      console.log('Sample completed workouts saved to localStorage');
+      
+      // Display the sample data in console
+      console.log('SAMPLE DATA LOADED:', JSON.stringify(sampleCompletedWorkouts, null, 2));
+      
+      // Update state
+      setPreviousWorkouts(sampleCompletedWorkouts);
+      
+      // Show confirmation
+      setSnackbarMessage('Sample workout data loaded for testing');
+      setSnackbarOpen(true);
+      
+      return sampleCompletedWorkouts;
+    } catch (error) {
+      console.error('Error saving sample workouts to localStorage:', error);
+      return [];
+    }
+  };
+
+  // Function to start a workout with pre-filled weights
+  const startWorkout = async (template) => {
+    // Make sure we have a valid template
+    if (!template) {
+      console.error('Invalid template provided to startWorkout');
+      return;
+    }
+    
+    // Set loading state
+    setOpenTemplateDialog(false);
+    setSaving(true);
+    
+    try {
+      console.log('Starting workout with template:', template.name);
+      console.log('Selected users:', selectedUsers.map(u => u.name || u._id));
+      
+      // Log the exact template object to see what's available
+      console.log('Raw template object:', JSON.stringify(template, null, 2));
+      
+      // Fetch previous workout data for each selected user
+      const usersWithPreviousWorkouts = await Promise.all(
+        selectedUsers.map(async (user) => {
+          console.log(`Processing user: ${user.name || user._id}`);
+          
+          // Use the existing previousWorkouts state if available
+          let userPreviousWorkouts = previousWorkouts;
+          
+          console.log(`Current previousWorkouts state has ${previousWorkouts.length} workouts`);
+          
+          // Always fetch real data first to ensure we're using the latest data
+          console.log('Fetching real workout data for user:', user._id);
+          const realWorkoutData = await fetchPreviousWorkoutData(user._id);
+          
+          // Check if the real data has any exercises with weights
+          const hasRealWeights = realWorkoutData.some(workout => 
+            workout.exercises && workout.exercises.some(ex => 
+              ex.sets && ex.sets.some(set => 
+                set.completed && set.weight !== null && set.weight !== ''
+              )
+            )
+          );
+          
+          if (hasRealWeights) {
+            console.log('Using real workout data with weights');
+            userPreviousWorkouts = realWorkoutData;
+          } else {
+            console.log('No weights found in real data, checking if sample data is needed');
+            
+            // If we're using sample data already, keep using it
+            if (previousWorkouts.length > 0 && previousWorkouts[0]?.userId === 'user-1') {
+              console.log('Using existing sample data');
+              userPreviousWorkouts = previousWorkouts;
+            } else {
+              console.log('Loading sample data as fallback');
+              userPreviousWorkouts = loadSampleCompletedWorkouts();
+            }
+          }
+          
+          console.log(`Final workout data for user has ${userPreviousWorkouts.length} workouts`);
+          return { user, previousWorkouts: userPreviousWorkouts };
+        })
+      );
+      
+      console.log(`Processed ${usersWithPreviousWorkouts.length} users with their workout data`);
+      
+      console.log('Template info:', {
+        name: template.name,
+        id: template.id,
+        _id: template._id,
+        exercises: template.exercises?.length || 0
+      });
+      
+      const currentTime = new Date().toISOString();
+      const newWorkouts = usersWithPreviousWorkouts.map(({ user, previousWorkouts }) => {
+        const workout = {
+          templateId: template._id,
+          templateName: template.name || 'Unnamed Workout',
+          startTime: currentTime,
+          userId: user?._id || 'unknown',
+          userName: user?.name || 'Unknown User',
+          userColor: user?.color || '#cccccc',
+          exercises: template.exercises.map(exercise => {
+            console.log(`Processing exercise: ${exercise.name}, sets: ${exercise.sets}, reps: ${exercise.reps}`);
+            
+            // Get the last used weights for this exercise by this user, for each set
+            const targetSetsCount = exercise.sets || 1;
+            console.log(`Target sets count: ${targetSetsCount}`);
+            
+            console.log(`Getting weights for ${exercise.name} from ${previousWorkouts.length} workouts`);
+            console.log(`First workout source: ${previousWorkouts.length > 0 ? (previousWorkouts[0]._id === 'sample-workout-1' ? 'SAMPLE DATA' : 'Real data') : 'None'}`);
+            
+            // Log the first few workouts to help diagnose issues
+            if (previousWorkouts.length > 0) {
+              previousWorkouts.slice(0, 2).forEach((workout, idx) => {
+                console.log(`Workout ${idx+1} info:`, {
+                  id: workout._id,
+                  name: workout.templateName,
+                  exercises: workout.exercises?.length || 0,
+                  source: workout._id === 'sample-workout-1' ? 'SAMPLE DATA' : 'Real data'
+                });
+              });
+            }
+            
+            // Get weights from the same template
+            const lastUsedWeights = getLastUsedWeights(previousWorkouts, exercise, targetSetsCount, template);
+            console.log(`Retrieved weights for ${exercise.name}: ${JSON.stringify(lastUsedWeights)}`);
+            
+            // Check if any weights were pre-filled
+            const hasPreFilledWeights = wereWeightsPrefilled(lastUsedWeights);
+            console.log(`Has pre-filled weights: ${hasPreFilledWeights}`);
+            
+            const exerciseObj = {
+              name: exercise.name,
+              category: exercise.category || '',
+              exerciseId: exercise.exerciseId,
+              // Track if weights were pre-filled for UI indication
+              weightPreFilled: hasPreFilledWeights,
+              sets: Array(targetSetsCount).fill().map((_, index) => ({ 
+                weight: lastUsedWeights[index] || '', 
+                reps: exercise.reps, 
+                completed: false 
+              }))
+            };
+            
+            console.log(`Created exercise object with ${exerciseObj.sets.length} sets`);
+            console.log(`Exercise ID: ${exerciseObj.exerciseId}, First set weight: ${exerciseObj.sets[0]?.weight || 'none'}`);
+            
+            return exerciseObj;
+          })
+        };
+        
+        return workout;
+      });
+      
+      // Check if any exercises had pre-filled weights
+      const anyWorkoutHasPreFilledWeights = newWorkouts.some(workout => 
+        workout.exercises.some(exercise => exercise.weightPreFilled)
+      );
+      
+      if (anyWorkoutHasPreFilledWeights) {
+        setSnackbarMessage('Weights have been pre-filled based on your previous workouts of the same template');
+        setSnackbarOpen(true);
+      } else {
+        setSnackbarMessage('No previous weights found for this template, using empty values');
+        setSnackbarOpen(true);
+      }
+      
+      console.log('Saving new workouts to localStorage (success path):', newWorkouts);
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem('activeWorkouts', JSON.stringify(newWorkouts));
+        console.log('Successfully saved workouts to localStorage');
+      } catch (error) {
+        console.error('Error saving to localStorage:', error);
+      }
+      
+      setActiveWorkouts(newWorkouts);
+      setSelectedUsers([]);
+    } catch (error) {
+      console.error('Error starting workout with pre-filled weights:', error);
+      alert('There was an error loading previous workout data. Starting with empty weights.');
+      
+      // Fallback to starting without pre-filled weights
+      const currentTime = new Date().toISOString();
+      const newWorkouts = selectedUsers.map(user => {
+        return {
+          templateId: template._id,
+          templateName: template.name || 'Unnamed Workout',
+          startTime: currentTime,
+          userId: user?._id || 'unknown',
+          userName: user?.name || 'Unknown User',
+          userColor: user?.color || '#cccccc',
+          exercises: template.exercises.map(exercise => {
+            return {
+              name: exercise.name,
+              category: exercise.category || '',
+              exerciseId: exercise.exerciseId,
+              weightPreFilled: false,
+              sets: Array(exercise.sets).fill().map(() => ({ weight: '', reps: exercise.reps, completed: false }))
+            };
+          })
+        };
+      });
+      
+      console.log('Saving new workouts to localStorage (error path):', newWorkouts);
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem('activeWorkouts', JSON.stringify(newWorkouts));
+        console.log('Successfully saved workouts to localStorage (error path)');
+      } catch (error) {
+        console.error('Error saving to localStorage (error path):', error);
+      }
+      
+      setActiveWorkouts(newWorkouts);
+      setSelectedUsers([]);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const [cancelConfirmDialog, setCancelConfirmDialog] = useState(false);
+  const [workoutToCancel, setWorkoutToCancel] = useState(null);
+
+  const confirmCancelWorkout = (workoutIndex) => {
+    setWorkoutToCancel(workoutIndex);
+    setCancelConfirmDialog(true);
+  };
+
+  const cancelWorkout = (workoutIndex) => {
+    try {
+      // Defensive check to ensure the workout exists
+      if (workoutIndex === null || workoutIndex < 0 || workoutIndex >= activeWorkouts.length) {
+        console.error('Cannot cancel workout: Invalid workout index', workoutIndex);
+        return;
+      }
+
+      const remainingWorkouts = activeWorkouts.filter((_, i) => i !== workoutIndex);
+      
+      // Update state first
+      setActiveWorkouts(remainingWorkouts);
+      
+      // Then update localStorage
+      try {
+        if (remainingWorkouts.length > 0) {
+          localStorage.setItem('activeWorkouts', JSON.stringify(remainingWorkouts));
+        } else {
+          localStorage.removeItem('activeWorkouts');
+        }
+      } catch (error) {
+        console.error('Error updating localStorage after canceling workout:', error);
+      }
+      
+      // Show confirmation
+      setSnackbarMessage('Workout canceled successfully');
+      setSnackbarOpen(true);
+      
+      // Navigate away if no workouts left
+      if (remainingWorkouts.length === 0) {
+        navigate('/');
+      }
+    } finally {
+      // Close dialog if open
+      setCancelConfirmDialog(false);
+      setWorkoutToCancel(null);
+    }
+  };
+
+  const finishWorkout = async (workoutId) => {
+    console.log(`Finishing workout: ${workoutId}`);
+    
+    // Find the workout to complete
+    const workoutToComplete = activeWorkouts.find(w => w.id === workoutId);
+    
+    if (!workoutToComplete) {
+      console.error(`Workout with ID ${workoutId} not found`);
+      setSnackbarMessage('Error: Workout not found');
+      setSnackbarOpen(true);
+      return;
+    }
+    
+    // Set the end time to now
+    workoutToComplete.endTime = new Date().toISOString();
+    
+    console.log('Workout to complete:', {
+      templateName: workoutToComplete.templateName,
+      templateId: workoutToComplete.templateId,
+      exercises: workoutToComplete.exercises?.map(ex => ({
+        name: ex.name, 
+        id: ex.id || ex._id, 
+        exerciseId: ex.exerciseId
+      }))
+    });
+    
+    // Ensure templateId is set
+    if (!workoutToComplete.templateId) {
+      const templateId = findTemplateIdByName(workoutToComplete.templateName);
+      if (templateId) {
+        workoutToComplete.templateId = templateId;
+        console.log(`Setting templateId for ${workoutToComplete.templateName}: ${templateId}`);
+      }
+    }
+    
+    // Ensure exerciseId is set for each exercise
+    if (workoutToComplete.exercises && Array.isArray(workoutToComplete.exercises)) {
+      workoutToComplete.exercises.forEach(exercise => {
+        if (!exercise.exerciseId && exercise.id) {
+          exercise.exerciseId = exercise.id;
+          console.log(`Setting exerciseId from id for ${exercise.name}: ${exercise.exerciseId}`);
+        }
+        
+        // Special case for Leg Day exercises
+        if (!exercise.exerciseId && workoutToComplete.templateName === 'Leg Day') {
+          const exerciseId = findExerciseIdByName(workoutToComplete.templateName, exercise.name);
+          if (exerciseId) {
+            exercise.exerciseId = exerciseId;
+            console.log(`Setting exerciseId for ${exercise.name}: ${exerciseId}`);
+          }
+        }
+      });
+    }
+    
+    try {
+      // Save to database
+      console.log('Saving completed workout to database');
+      const response = await apiService.createCompletedWorkout(workoutToComplete);
+      console.log('Workout saved successfully:', response.data);
+      
+      // Update local state
+      setActiveWorkouts(activeWorkouts.filter(w => w.id !== workoutId));
+      
+      // Update localStorage
+      try {
+        const updatedWorkouts = activeWorkouts.filter(w => w.id !== workoutId);
+        localStorage.setItem('activeWorkouts', JSON.stringify(updatedWorkouts));
+        console.log('Updated active workouts in localStorage');
+      } catch (error) {
+        console.error('Error updating localStorage:', error);
+      }
+      
+      // Clear completedWorkouts from localStorage to force refresh from database
+      try {
+        localStorage.removeItem('completedWorkouts');
+        console.log('Cleared completedWorkouts from localStorage to ensure fresh data on next load');
+      } catch (error) {
+        console.error('Error clearing localStorage:', error);
+      }
+      
+      // Show success message
+      setSnackbarMessage('Workout completed and saved!');
+      setSnackbarOpen(true);
+      
+      // Navigate back to home
+      navigate('/');
+    } catch (error) {
+      console.error('Error saving workout:', error);
+      setSnackbarMessage('Error saving workout. Please try again.');
+      setSnackbarOpen(true);
+    }
+  };
+
+  // Function to fetch previous workout data for a user
+  const fetchPreviousWorkoutData = async (userId) => {
+    console.log(`Fetching previous workout data for user: ${userId}`);
+    try {
+      setLoading(true);
+      
+      // Fetch from API first to get the most up-to-date data
+      console.log(`Fetching workout data from API for user: ${userId}`);
+      const response = await apiService.getCompletedWorkouts();
+      
+      let data = response.data;
+      console.log(`Received ${data.length} total workouts from API`);
+      
+      // Filter workouts by user ID if provided
+      if (userId) {
+        data = data.filter(workout => {
+          // Check if workout has user property with _id that matches userId
+          return workout.user && 
+                 ((typeof workout.user === 'object' && workout.user._id === userId) || 
+                  (typeof workout.user === 'string' && workout.user === userId));
+        });
+        console.log(`Filtered to ${data.length} workouts for user ${userId}`);
+      }
+      
+      if (data.length === 0) {
+        console.log('No workout data found in database, checking localStorage');
+        
+        // Try to get from localStorage as fallback
+        const cachedData = localStorage.getItem('completedWorkouts');
+        
+        if (cachedData) {
+          console.log('Found cached workout data in localStorage');
+          try {
+            const parsedData = JSON.parse(cachedData);
+            console.log(`Parsed ${parsedData.length} workouts from localStorage`);
+            
+            // Debug the structure of the first workout if available
+            if (parsedData.length > 0) {
+              console.log('First workout structure:', {
+                id: parsedData[0]._id,
+                templateName: parsedData[0].templateName,
+                endTime: parsedData[0].endTime,
+                exerciseCount: parsedData[0].exercises?.length || 0
+              });
+            }
+            
+            setPreviousWorkouts(parsedData);
+            setLoading(false);
+            
+            // Show snackbar if we have workout data
+            if (parsedData.length > 0) {
+              setSnackbarMessage('Using cached workout data (no database data found)');
+              setSnackbarOpen(true);
+            }
+            
+            return parsedData;
+          } catch (parseError) {
+            console.error('Error parsing cached workout data:', parseError);
+            // If parsing fails, return empty array
+            setPreviousWorkouts([]);
+            setLoading(false);
+            return [];
+          }
+        } else {
+          console.log('No cached workout data found in localStorage');
+          setPreviousWorkouts([]);
+          setLoading(false);
+          return [];
+        }
+      }
+      
+      // Cache in localStorage for future use
+      try {
+        console.log('Caching workout data in localStorage');
+        localStorage.setItem('completedWorkouts', JSON.stringify(data));
+      } catch (storageError) {
+        console.error('Error caching workout data in localStorage:', storageError);
+        // Continue even if caching fails
+      }
+      
+      setPreviousWorkouts(data);
+      setLoading(false);
+      
+      // Show snackbar if we have workout data
+      if (data.length > 0) {
+        setSnackbarMessage('Previous workout data loaded from database');
+        setSnackbarOpen(true);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error fetching workout data:', error);
+      setLoading(false);
+      
+      // Try to get from localStorage as fallback on API error
+      const cachedData = localStorage.getItem('completedWorkouts');
+      
+      if (cachedData) {
+        try {
+          const parsedData = JSON.parse(cachedData);
+          console.log(`Using ${parsedData.length} cached workouts due to API error`);
+          setPreviousWorkouts(parsedData);
+          setSnackbarMessage('Using cached workout data (API error)');
+          setSnackbarOpen(true);
+          return parsedData;
+        } catch (parseError) {
+          console.error('Error parsing cached workout data:', parseError);
+        }
+      }
+      
+      // If all else fails, return empty array
+      setPreviousWorkouts([]);
+      return [];
+    }
   };
 
   // Function to add a new exercise to a workout
@@ -215,6 +1064,16 @@ const ActiveWorkout = () => {
     setActiveWorkouts(updatedWorkouts);
     setSelectedExercise('');
     setAddExerciseDialog(false);
+  };
+
+  // Function to remove an exercise from a workout
+  const removeExercise = (workoutIndex, exerciseIndex) => {
+    const updatedWorkouts = [...activeWorkouts];
+    updatedWorkouts[workoutIndex].exercises.splice(exerciseIndex, 1);
+    setActiveWorkouts(updatedWorkouts);
+    
+    // We don't need to save to localStorage here as the useEffect will handle it
+    // This is different from the set-level functions where we need immediate saving
   };
 
   // Component to render exercise sets
@@ -258,12 +1117,23 @@ const ActiveWorkout = () => {
     
     // For completed status, update immediately
     const updateCompletedStatus = (setIndex, value) => {
+      console.log(`Updating completed status for set ${setIndex} to ${value}`);
+      
       const updatedWorkouts = [...activeWorkouts];
       updatedWorkouts[workoutIndex].exercises[exerciseIndex].sets[setIndex].completed = value;
+      
+      // Log the updated set
+      const updatedSet = updatedWorkouts[workoutIndex].exercises[exerciseIndex].sets[setIndex];
+      console.log(`Updated set: weight=${updatedSet.weight}, reps=${updatedSet.reps}, completed=${updatedSet.completed}`);
+      
       setActiveWorkouts(updatedWorkouts);
       
       // Save to localStorage immediately
       localStorage.setItem('activeWorkouts', JSON.stringify(updatedWorkouts));
+      
+      // Count completed sets
+      const completedSets = updatedWorkouts[workoutIndex].exercises[exerciseIndex].sets.filter(s => s.completed).length;
+      console.log(`Exercise now has ${completedSets} completed sets out of ${updatedWorkouts[workoutIndex].exercises[exerciseIndex].sets.length} total sets`);
     };
 
     const addSet = () => {
@@ -395,600 +1265,6 @@ const ActiveWorkout = () => {
         ))}
       </Box>
     );
-  };
-
-  // Function to fetch previous workout data for a user
-  const fetchPreviousWorkoutData = async (userId) => {
-    console.log(`Fetching previous workout data for user: ${userId}`);
-    try {
-      setLoading(true);
-      // Try to get from localStorage first for faster loading
-      const cachedData = localStorage.getItem('completedWorkouts');
-      console.log('Checking localStorage for cached workout data');
-      
-      if (cachedData) {
-        console.log('Found cached workout data in localStorage');
-        try {
-          const parsedData = JSON.parse(cachedData);
-          console.log(`Parsed ${parsedData.length} workouts from localStorage`);
-          
-          // Debug the structure of the first workout if available
-          if (parsedData.length > 0) {
-            console.log('First workout structure:', {
-              id: parsedData[0]._id,
-              templateName: parsedData[0].templateName,
-              endTime: parsedData[0].endTime,
-              exerciseCount: parsedData[0].exercises?.length || 0
-            });
-          }
-          
-          setPreviousWorkouts(parsedData);
-          setLoading(false);
-          
-          // Show snackbar if we have workout data
-          if (parsedData.length > 0) {
-            // Check if any of the workouts have exercises with completed sets that have weights
-            const hasRealWeights = parsedData.some(workout => 
-              workout.exercises && workout.exercises.some(ex => 
-                ex.sets && ex.sets.some(set => 
-                  set.completed && set.weight !== null && set.weight !== ''
-                )
-              )
-            );
-            
-            if (hasRealWeights) {
-              console.log('Found real workout data with weights in localStorage!');
-              setSnackbarMessage('Weights pre-filled from your previous workouts');
-            } else {
-              console.log('No real weights found in localStorage data');
-              setSnackbarMessage('No previous weights found, using default values');
-            }
-            setSnackbarOpen(true);
-          }
-          
-          return parsedData;
-        } catch (parseError) {
-          console.error('Error parsing cached workout data:', parseError);
-          // If parsing fails, continue to fetch from API
-        }
-      } else {
-        console.log('No cached workout data found in localStorage');
-      }
-      
-      // If not in localStorage or parsing failed, fetch from API
-      console.log(`Fetching workout data from API for user: ${userId}`);
-      // The API doesn't use userId as a query param, it returns all workouts
-      const response = await apiService.getCompletedWorkouts();
-      
-      let data = response.data;
-      console.log(`Received ${data.length} total workouts from API`);
-      
-      // Filter workouts by user ID if provided
-      if (userId) {
-        data = data.filter(workout => {
-          // Check if workout has user property with _id that matches userId
-          return workout.user && workout.user._id === userId;
-        });
-        console.log(`Filtered to ${data.length} workouts for user ID: ${userId}`);
-      }
-      
-      // Debug the structure of the first workout if available
-      if (data.length > 0) {
-        console.log('First workout structure from API:', {
-          id: data[0]._id,
-          templateName: data[0].templateName,
-          endTime: data[0].endTime,
-          exerciseCount: data[0].exercises?.length || 0,
-          userId: data[0].user?._id || 'unknown',
-          userName: data[0].user?.name || 'unknown'
-        });
-        
-        // Log the first exercise and its sets if available
-        if (data[0].exercises && data[0].exercises.length > 0) {
-          const firstEx = data[0].exercises[0];
-          console.log('First exercise details:', {
-            name: firstEx.name,
-            setsCount: firstEx.sets?.length || 0,
-            firstSetWeight: firstEx.sets && firstEx.sets.length > 0 ? firstEx.sets[0].weight : 'none',
-            hasCompletedSets: firstEx.sets ? firstEx.sets.some(set => set.completed) : false
-          });
-        }
-      } else {
-        console.log('No workout data found from API');
-        // Return empty array instead of automatically loading sample data
-        return [];
-      }
-      
-      // Cache in localStorage for future use
-      try {
-        console.log('Caching workout data in localStorage');
-        localStorage.setItem('completedWorkouts', JSON.stringify(data));
-      } catch (storageError) {
-        console.error('Error caching workout data in localStorage:', storageError);
-        // Continue even if caching fails
-      }
-      
-      setPreviousWorkouts(data);
-      setLoading(false);
-      
-      // Show snackbar if we have workout data
-      if (data.length > 0) {
-        // Check if any of the workouts have exercises with completed sets that have weights
-        const hasRealWeights = data.some(workout => 
-          workout.exercises && workout.exercises.some(ex => 
-            ex.sets && ex.sets.some(set => 
-              set.completed && set.weight !== null && set.weight !== ''
-            )
-          )
-        );
-        
-        if (hasRealWeights) {
-          console.log('Found real workout data with weights!');
-          setSnackbarMessage('Weights pre-filled from your previous workouts');
-        } else {
-          console.log('No real weights found in workout data');
-          setSnackbarMessage('No previous weights found, using default values');
-        }
-        setSnackbarOpen(true);
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Error fetching previous workout data:', error);
-      setLoading(false);
-      // Return empty array as fallback
-      return [];
-    }
-  };
-
-  // Function to get the most recent weights used for a specific exercise by a user
-  const getLastUsedWeights = (previousWorkouts, exerciseName, targetSetsCount) => {
-    console.log(`Getting weights for exercise: ${exerciseName}, target sets: ${targetSetsCount}`);
-    console.log(`Previous workouts available: ${previousWorkouts.length}`);
-    
-    // Safety check for empty or invalid previousWorkouts
-    if (!previousWorkouts || !Array.isArray(previousWorkouts) || previousWorkouts.length === 0) {
-      console.log('No previous workouts available, returning empty weights');
-      return Array(targetSetsCount).fill('');
-    }
-    
-    // Sort workouts by date (newest first) if not already sorted
-    const sortedWorkouts = [...previousWorkouts].sort((a, b) => {
-      // Defensive check for missing endTime
-      if (!a.endTime || !b.endTime) {
-        console.log('Warning: Missing endTime in workout data');
-        return 0;
-      }
-      return new Date(b.endTime) - new Date(a.endTime);
-    });
-
-    console.log(`Sorted ${sortedWorkouts.length} workouts by date`);
-    
-    // Find the most recent workout that contains this exercise
-    for (const workout of sortedWorkouts) {
-      console.log(`Checking workout: ${workout.templateName} from ${workout.endTime}`);
-      
-      // Defensive check for missing exercises array
-      if (!workout.exercises || !Array.isArray(workout.exercises)) {
-        console.log('Warning: Workout missing exercises array');
-        continue;
-      }
-      
-      const matchingExercise = workout.exercises.find(ex => {
-        // Defensive check for missing exercise name
-        if (!ex || !ex.name) {
-          console.log('Warning: Exercise missing name');
-          return false;
-        }
-        
-        // Normalize both names for comparison (remove extra spaces, case insensitive)
-        const normalizedExName = ex.name.toLowerCase().trim();
-        const normalizedTargetName = exerciseName.toLowerCase().trim();
-        
-        console.log(`Comparing: '${normalizedExName}' with '${normalizedTargetName}'`);
-        
-        // Check for exact match or if the name contains the target name
-        return normalizedExName === normalizedTargetName || 
-               normalizedExName.includes(normalizedTargetName) || 
-               normalizedTargetName.includes(normalizedExName);
-      });
-
-      if (matchingExercise) {
-        console.log(`Found matching exercise: ${matchingExercise.name}`);
-        console.log(`Workout source: ${workout._id === 'sample-workout-1' ? 'SAMPLE DATA' : 'Real data'}`);
-      } else {
-        console.log(`No matching exercise found in this workout`);
-        continue;
-      }
-
-      if (matchingExercise && matchingExercise.sets && matchingExercise.sets.length > 0) {
-        console.log(`Exercise has ${matchingExercise.sets.length} sets`);
-        
-        // Get weights from completed sets
-        const completedSets = matchingExercise.sets.filter(set => set.completed);
-        console.log(`Found ${completedSets.length} completed sets`);
-        
-        if (completedSets.length > 0) {
-          // Map the completed sets to their weights, converting null to empty string
-          const weights = completedSets.map(set => set.weight !== null ? set.weight : '');
-          console.log(`Extracted weights from completed sets: ${JSON.stringify(weights)}`);
-          
-          // If we have fewer completed sets than target sets, repeat the last weight
-          while (weights.length < targetSetsCount) {
-            const lastWeight = weights[weights.length - 1] || '';
-            weights.push(lastWeight);
-          }
-          
-          // If we have more completed sets than target sets, trim the array
-          const result = weights.slice(0, targetSetsCount);
-          console.log(`Final weights to use: ${JSON.stringify(result)}`);
-          return result;
-        } else {
-          // If no completed sets, use all sets
-          const weights = matchingExercise.sets.map(set => set.weight !== null ? set.weight : '');
-          console.log(`No completed sets, using all set weights: ${JSON.stringify(weights)}`);
-          
-          // Adjust array length to match target sets count
-          while (weights.length < targetSetsCount) {
-            const lastWeight = weights[weights.length - 1] || '';
-            weights.push(lastWeight);
-          }
-          
-          const result = weights.slice(0, targetSetsCount);
-          console.log(`Final weights to use: ${JSON.stringify(result)}`);
-          return result;
-        }
-      }
-    }
-    
-    console.log('No suitable previous workout found, returning empty weights');
-    // If no previous weights found, return array of empty strings
-    return Array(targetSetsCount).fill('');
-  };
-  
-  // Function to determine if weights were pre-filled
-  const wereWeightsPrefilled = (weights) => {
-    return weights.some(weight => weight !== '');
-  };
-  
-  // Function to load sample completed workout data for testing
-  const loadSampleCompletedWorkouts = () => {
-    console.log('Loading sample completed workout data for testing');
-    
-    // Create sample completed workout with realistic data
-    const sampleCompletedWorkouts = [
-      {
-        _id: 'sample-workout-1',
-        templateId: 'template-1',
-        templateName: 'Full Body Workout',
-        startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
-        endTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000 + 3600000).toISOString(), // 1 hour after start
-        userId: 'user-1',
-        userName: 'Test User',
-        exercises: [
-          {
-            _id: 'ex-1',
-            name: 'Bench Press',
-            category: 'Chest',
-            sets: [
-              { weight: '135', reps: 10, completed: true },
-              { weight: '155', reps: 8, completed: true },
-              { weight: '175', reps: 6, completed: true }
-            ]
-          },
-          {
-            _id: 'ex-2',
-            name: 'Squat',
-            category: 'Legs',
-            sets: [
-              { weight: '185', reps: 10, completed: true },
-              { weight: '205', reps: 8, completed: true },
-              { weight: '225', reps: 6, completed: true }
-            ]
-          },
-          {
-            _id: 'ex-3',
-            name: 'Deadlift',
-            category: 'Back',
-            sets: [
-              { weight: '225', reps: 10, completed: true },
-              { weight: '275', reps: 8, completed: true },
-              { weight: '315', reps: 5, completed: true }
-            ]
-          }
-        ]
-      }
-    ];
-    
-    // Save to localStorage
-    try {
-      localStorage.setItem('completedWorkouts', JSON.stringify(sampleCompletedWorkouts));
-      console.log('Sample completed workouts saved to localStorage');
-      
-      // Display the sample data in console
-      console.log('SAMPLE DATA LOADED:', JSON.stringify(sampleCompletedWorkouts, null, 2));
-      
-      // Update state
-      setPreviousWorkouts(sampleCompletedWorkouts);
-      
-      // Show confirmation
-      setSnackbarMessage('Sample workout data loaded for testing');
-      setSnackbarOpen(true);
-      
-      return sampleCompletedWorkouts;
-    } catch (error) {
-      console.error('Error saving sample workouts to localStorage:', error);
-      return [];
-    }
-  };
-
-  const startWorkout = async (template) => {
-    // Make sure we have a valid template
-    if (!template) {
-      console.error('Invalid template provided to startWorkout');
-      return;
-    }
-    
-    // Set loading state
-    setOpenTemplateDialog(false);
-    setSaving(true);
-    
-    try {
-      console.log('Starting workout with template:', template.name);
-      console.log('Selected users:', selectedUsers.map(u => u.name || u._id));
-      
-      // Fetch previous workout data for each selected user
-      const usersWithPreviousWorkouts = await Promise.all(
-        selectedUsers.map(async (user) => {
-          console.log(`Processing user: ${user.name || user._id}`);
-          
-          // Use the existing previousWorkouts state if available
-          let userPreviousWorkouts = previousWorkouts;
-          
-          console.log(`Current previousWorkouts state has ${previousWorkouts.length} workouts`);
-          
-          // Always fetch real data first to ensure we're using the latest data
-          console.log('Fetching real workout data for user:', user._id);
-          const realWorkoutData = await fetchPreviousWorkoutData(user._id);
-          
-          // Check if the real data has any exercises with weights
-          const hasRealWeights = realWorkoutData.some(workout => 
-            workout.exercises && workout.exercises.some(ex => 
-              ex.sets && ex.sets.some(set => 
-                set.completed && set.weight !== null && set.weight !== ''
-              )
-            )
-          );
-          
-          if (hasRealWeights) {
-            console.log('Using real workout data with weights');
-            userPreviousWorkouts = realWorkoutData;
-          } else {
-            console.log('No weights found in real data, checking if sample data is needed');
-            
-            // If we're using sample data already, keep using it
-            if (previousWorkouts.length > 0 && previousWorkouts[0]?.userId === 'user-1') {
-              console.log('Using existing sample data');
-              userPreviousWorkouts = previousWorkouts;
-            } else {
-              console.log('Loading sample data as fallback');
-              userPreviousWorkouts = loadSampleCompletedWorkouts();
-            }
-          }
-          
-          console.log(`Final workout data for user has ${userPreviousWorkouts.length} workouts`);
-          return { user, previousWorkouts: userPreviousWorkouts };
-        })
-      );
-      
-      console.log(`Processed ${usersWithPreviousWorkouts.length} users with their workout data`);
-      
-      const currentTime = new Date().toISOString();
-      const newWorkouts = usersWithPreviousWorkouts.map(({ user, previousWorkouts }) => ({
-        templateId: template.id || template._id || 'unknown',
-        templateName: template.name || 'Unnamed Workout',
-        startTime: currentTime,
-        userId: user?._id || 'unknown',
-        userName: user?.name || 'Unknown User',
-        userColor: user?.color || '#cccccc',
-        exercises: template.exercises.map(exercise => {
-          console.log(`Processing exercise: ${exercise.name}, sets: ${exercise.sets}, reps: ${exercise.reps}`);
-          
-          // Get the last used weights for this exercise by this user, for each set
-          const targetSetsCount = exercise.sets || 1;
-          console.log(`Target sets count: ${targetSetsCount}`);
-          
-          console.log(`Getting weights for ${exercise.name} from ${previousWorkouts.length} workouts`);
-          console.log(`First workout source: ${previousWorkouts.length > 0 ? (previousWorkouts[0]._id === 'sample-workout-1' ? 'SAMPLE DATA' : 'Real data') : 'None'}`);
-          
-          // Log the first few workouts to help diagnose issues
-          if (previousWorkouts.length > 0) {
-            previousWorkouts.slice(0, 2).forEach((workout, idx) => {
-              console.log(`Workout ${idx+1} info:`, {
-                id: workout._id,
-                name: workout.templateName,
-                exercises: workout.exercises?.length || 0,
-                source: workout._id === 'sample-workout-1' ? 'SAMPLE DATA' : 'Real data'
-              });
-            });
-          }
-          
-          const lastUsedWeights = getLastUsedWeights(previousWorkouts, exercise.name, targetSetsCount);
-          console.log(`Retrieved weights for ${exercise.name}: ${JSON.stringify(lastUsedWeights)}`);
-          
-          // Check if any weights were pre-filled
-          const hasPreFilledWeights = wereWeightsPrefilled(lastUsedWeights);
-          console.log(`Has pre-filled weights: ${hasPreFilledWeights}`);
-          
-          const exerciseObj = {
-            _id: exercise._id || exercise.id,
-            name: exercise.name,
-            category: exercise.category || '',
-            // Track if weights were pre-filled for UI indication
-            weightPreFilled: hasPreFilledWeights,
-            sets: Array(targetSetsCount).fill().map((_, index) => ({ 
-              weight: lastUsedWeights[index] || '', 
-              reps: exercise.reps, 
-              completed: false 
-            }))
-          };
-          
-          console.log(`Created exercise object with ${exerciseObj.sets.length} sets`);
-          console.log(`First set weight: ${exerciseObj.sets[0]?.weight || 'none'}`);
-          
-          return exerciseObj;
-        })
-      }));
-      
-      // Check if any exercises had pre-filled weights
-      const anyWorkoutHasPreFilledWeights = newWorkouts.some(workout => 
-        workout.exercises.some(exercise => exercise.weightPreFilled)
-      );
-      
-      if (anyWorkoutHasPreFilledWeights) {
-        setSnackbarMessage('Weights have been pre-filled based on your previous workouts');
-        setSnackbarOpen(true);
-      }
-      
-      console.log('Saving new workouts to localStorage (success path):', newWorkouts);
-      
-      // Save to localStorage
-      try {
-        localStorage.setItem('activeWorkouts', JSON.stringify(newWorkouts));
-        console.log('Successfully saved workouts to localStorage');
-      } catch (error) {
-        console.error('Error saving to localStorage:', error);
-      }
-      
-      setActiveWorkouts(newWorkouts);
-      setSelectedUsers([]);
-    } catch (error) {
-      console.error('Error starting workout with pre-filled weights:', error);
-      alert('There was an error loading previous workout data. Starting with empty weights.');
-      
-      // Fallback to starting without pre-filled weights
-      const currentTime = new Date().toISOString();
-      const newWorkouts = selectedUsers.map(user => ({
-        templateId: template.id || template._id || 'unknown',
-        templateName: template.name || 'Unnamed Workout',
-        startTime: currentTime,
-        userId: user?._id || 'unknown',
-        userName: user?.name || 'Unknown User',
-        userColor: user?.color || '#cccccc',
-        exercises: template.exercises.map(exercise => ({
-          _id: exercise._id || exercise.id,
-          name: exercise.name,
-          category: exercise.category || '',
-          weightPreFilled: false,
-          sets: Array(exercise.sets).fill().map(() => ({ weight: '', reps: exercise.reps, completed: false }))
-        }))
-      }));
-      
-      console.log('Saving new workouts to localStorage (error path):', newWorkouts);
-      
-      // Save to localStorage
-      try {
-        localStorage.setItem('activeWorkouts', JSON.stringify(newWorkouts));
-        console.log('Successfully saved workouts to localStorage (error path)');
-      } catch (error) {
-        console.error('Error saving to localStorage (error path):', error);
-      }
-      
-      setActiveWorkouts(newWorkouts);
-      setSelectedUsers([]);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const [cancelConfirmDialog, setCancelConfirmDialog] = useState(false);
-  const [workoutToCancel, setWorkoutToCancel] = useState(null);
-
-  const confirmCancelWorkout = (workoutIndex) => {
-    setWorkoutToCancel(workoutIndex);
-    setCancelConfirmDialog(true);
-  };
-
-  const cancelWorkout = (workoutIndex) => {
-    try {
-      // Defensive check to ensure the workout exists
-      if (workoutIndex === null || workoutIndex < 0 || workoutIndex >= activeWorkouts.length) {
-        console.error('Cannot cancel workout: Invalid workout index', workoutIndex);
-        return;
-      }
-
-      const remainingWorkouts = activeWorkouts.filter((_, i) => i !== workoutIndex);
-      
-      // Update state first
-      setActiveWorkouts(remainingWorkouts);
-      
-      // Then update localStorage
-      try {
-        if (remainingWorkouts.length > 0) {
-          localStorage.setItem('activeWorkouts', JSON.stringify(remainingWorkouts));
-        } else {
-          localStorage.removeItem('activeWorkouts');
-        }
-      } catch (error) {
-        console.error('Error updating localStorage after canceling workout:', error);
-      }
-      
-      // Show confirmation
-      setSnackbarMessage('Workout canceled successfully');
-      setSnackbarOpen(true);
-      
-      // Navigate away if no workouts left
-      if (remainingWorkouts.length === 0) {
-        navigate('/');
-      }
-    } finally {
-      // Close dialog if open
-      setCancelConfirmDialog(false);
-      setWorkoutToCancel(null);
-    }
-  };
-
-  const finishWorkout = async (workoutIndex) => {
-    setSaving(true);
-    
-    // Defensive check to ensure the workout exists
-    if (workoutIndex === null || workoutIndex < 0 || workoutIndex >= activeWorkouts.length || !activeWorkouts[workoutIndex]) {
-      console.error('Workout not found at index:', workoutIndex);
-      setSaving(false);
-      return;
-    }
-    
-    const completedWorkout = {
-      ...activeWorkouts[workoutIndex],
-      endTime: new Date().toISOString(),
-      // Ensure startTime exists, or set it to now if missing
-      startTime: activeWorkouts[workoutIndex].startTime || new Date().toISOString(),
-      userId: activeWorkouts[workoutIndex].userId || 'unknown'
-    };
-    
-    try {
-      await apiService.createCompletedWorkout(completedWorkout);
-      
-      // Update workout history in localStorage
-      try {
-        const updatedHistory = [...workoutHistory, completedWorkout];
-        localStorage.setItem('workoutHistory', JSON.stringify(updatedHistory));
-        setWorkoutHistory(updatedHistory);
-      } catch (error) {
-        console.error('Error updating workout history in localStorage:', error);
-        // Still update the state even if localStorage fails
-        setWorkoutHistory(prev => [...prev, completedWorkout]);
-      }
-      
-      // Store the index before showing the dialog
-      setCompletedWorkoutIndex(workoutIndex);
-      setCompletionDialog(true);
-    } catch (error) {
-      console.error('Error saving workout:', error);
-      alert('Error saving workout. Please try again.');
-    } finally {
-      setSaving(false);
-    }
   };
 
   if (activeWorkouts.length === 0) {
@@ -1200,30 +1476,27 @@ const ActiveWorkout = () => {
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 <Button
                   variant="outlined"
-                  onClick={() => setAddExerciseDialog(workoutIndex)}
                   size="small"
+                  onClick={() => setAddExerciseDialog(workoutIndex)}
                 >
                   Add Exercise
                 </Button>
                 <Button
                   variant="outlined"
                   color="error"
-                  onClick={() => confirmCancelWorkout(workoutIndex)}
                   size="small"
+                  onClick={() => confirmCancelWorkout(workoutIndex)}
                 >
                   Cancel Workout
                 </Button>
                 <Button
                   variant="contained"
                   color="success"
-                  onClick={() => finishWorkout(workoutIndex)}
-                  disabled={saving}
                   size="small"
+                  onClick={() => finishWorkout(workout.id)}
+                  disabled={saving}
                 >
-                  {saving && completedWorkoutIndex === workoutIndex ? 
-                    <CircularProgress size={20} /> : 
-                    'Finish Workout'
-                  }
+                  Finish Workout
                 </Button>
               </Box>
             </Box>
@@ -1318,7 +1591,7 @@ const ActiveWorkout = () => {
       >
         <DialogContent sx={{ textAlign: 'center', py: 4 }}>
           <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>
-            Workout Complete! 🎉
+            Workout Complete! 
           </Typography>
           <Typography variant="h6" color="text.secondary" gutterBottom>
             {motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)]}

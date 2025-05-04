@@ -177,4 +177,33 @@ router.delete('/:id/permanent', async (req, res) => {
   }
 });
 
+// Fix all exercise IDs
+router.post('/fix-ids', async (req, res) => {
+  try {
+    console.log('Starting to fix exercise IDs');
+    
+    // Get all exercises
+    const exercises = await Exercise.find({});
+    console.log(`Found ${exercises.length} exercises to check`);
+    
+    let updatedCount = 0;
+    
+    // Update exercises without exerciseId
+    for (const exercise of exercises) {
+      if (!exercise.exerciseId) {
+        exercise.exerciseId = exercise._id.toString();
+        await exercise.save();
+        updatedCount++;
+        console.log(`Updated exercise ${exercise.name} with exerciseId ${exercise.exerciseId}`);
+      }
+    }
+    
+    console.log(`Fixed ${updatedCount} exercises`);
+    res.json({ message: `Fixed ${updatedCount} exercises` });
+  } catch (error) {
+    console.error('Error fixing exercise IDs:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;

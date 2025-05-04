@@ -11,6 +11,7 @@ import WorkoutHistory from './pages/WorkoutHistory';
 import ExerciseManager from './pages/ExerciseManager';
 import UserManager from './pages/UserManager';
 import Management from './pages/Management';
+import DebugWeightPrefill from './pages/DebugWeightPrefill';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="/workouts" element={<WorkoutBuilder />} />
           <Route path="/active" element={<ActiveWorkout />} />
           <Route path="/history" element={<WorkoutHistory />} />
+          <Route path="/debug-weight-prefill" element={<DebugWeightPrefill />} />
           <Route path="/" element={<Navigate to="/active" replace />} />
         </Routes>
       </div>
