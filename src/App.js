@@ -9,6 +9,7 @@ import WorkoutBuilder from './pages/WorkoutBuilder';
 import ActiveWorkout from './pages/ActiveWorkout';
 import WorkoutHistory from './pages/WorkoutHistory';
 import ExerciseManager from './pages/ExerciseManager';
+import UserManager from './pages/UserManager';
 import Management from './pages/Management';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
         <Routes>
           <Route path="/management" element={<Management />} />
           <Route path="/exercises" element={<ExerciseManager />} />
+          <Route path="/users" element={<UserManager />} />
           <Route path="/workouts" element={<WorkoutBuilder />} />
           <Route path="/active" element={<ActiveWorkout />} />
           <Route path="/history" element={<WorkoutHistory />} />

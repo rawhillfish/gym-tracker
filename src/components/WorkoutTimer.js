@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Chip } from '@mui/material';
+import { Chip } from '@mui/material';
 import TimerIcon from '@mui/icons-material/Timer';
 
 const WorkoutTimer = ({ startTime }) => {

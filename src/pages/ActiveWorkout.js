@@ -16,11 +16,9 @@ import {
   DialogActions,
   CircularProgress,
   Snackbar,
-  Alert,
-  Chip
+  Alert
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import TimerIcon from '@mui/icons-material/Timer';
 import WorkoutTimer from '../components/WorkoutTimer';
 
 const motivationalMessages = [
@@ -34,36 +32,7 @@ const motivationalMessages = [
   "⚡ Your dedication is inspiring - keep it up!",
 ];
 
-// Format duration for the workout timer
-const formatDuration = (startTime) => {
-  if (!startTime) return '00:00';
-  
-  try {
-    const start = new Date(startTime);
-    const now = new Date();
-    const diffMs = now - start;
-    
-    if (isNaN(diffMs)) {
-      console.error('Invalid date format for workout duration');
-      return '00:00';
-    }
-    
-    const diffSec = Math.floor(diffMs / 1000);
-    const hours = Math.floor(diffSec / 3600);
-    const minutes = Math.floor((diffSec % 3600) / 60);
-    const seconds = diffSec % 60;
-    
-    const formattedHours = hours > 0 ? `${hours}:` : '';
-    const formattedMinutes = `${minutes.toString().padStart(hours > 0 ? 2 : 1, '0')}:`;
-    const formattedSeconds = seconds.toString().padStart(2, '0');
-    
-    return `${formattedHours}${formattedMinutes}${formattedSeconds}`;
-  } catch (error) {
-    console.error('Error calculating workout duration:', error);
-    return '00:00';
-  }
-};
-
+// Calculate duration between two timestamps
 const calculateDuration = (startTime, endTime) => {
   // Defensive check for missing startTime or endTime
   if (!startTime || !endTime) {
@@ -199,8 +168,6 @@ const ActiveWorkout = () => {
       })
       .catch(err => console.error('Error fetching exercises:', err));
   }, []);
-
-  // Timer is now handled by the WorkoutTimer component in a separate component
 
   // Save active workouts to localStorage whenever they change
   useEffect(() => {
@@ -874,11 +841,11 @@ const ActiveWorkout = () => {
       }));
       
       // Check if any exercises had pre-filled weights
-      const hasPreFilledWeights = newWorkouts.some(workout => 
+      const anyWorkoutHasPreFilledWeights = newWorkouts.some(workout => 
         workout.exercises.some(exercise => exercise.weightPreFilled)
       );
       
-      if (hasPreFilledWeights) {
+      if (anyWorkoutHasPreFilledWeights) {
         setSnackbarMessage('Weights have been pre-filled based on your previous workouts');
         setSnackbarOpen(true);
       }
@@ -1395,11 +1362,5 @@ const ActiveWorkout = () => {
     </Container>
   );
 };
-
-
-
-
-
-
 
 export default ActiveWorkout;

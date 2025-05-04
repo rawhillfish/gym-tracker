@@ -69,6 +69,10 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     console.log(`API Success [${response.config.method.toUpperCase()} ${response.config.url}]:`, response.status);
+    // Log more details for DELETE requests to help debug the soft deletion issue
+    if (response.config.method.toUpperCase() === 'DELETE' && response.config.url.includes('/api/exercises/')) {
+      console.log('DELETE Exercise Response Data:', response.data);
+    }
     return response;
   },
   (error) => {
@@ -131,18 +135,36 @@ const apiService = {
   // Health check
   checkHealth: () => api.get('/health'),
   // Exercises
-  getExercises: () => api.get('/api/exercises'),
+  getExercises: (params) => api.get('/api/exercises', { params }),
   createExercise: (data) => api.post('/api/exercises', data),
   updateExercise: (id, data) => api.put(`/api/exercises/${id}`, data),
-  deleteExercise: (id) => api.delete(`/api/exercises/${id}`),
+  retireExercise: (id) => api.delete(`/api/exercises/${id}`),
+  hardDeleteExercise: (id) => api.delete(`/api/exercises/${id}/permanent`),
+  restoreExercise: (id) => api.patch(`/api/exercises/${id}/restore`),
   createExercisesBulk: (exercises) => api.post('/api/exercises/bulk', { exercises }),
 
   // Workout Templates
-  getWorkoutTemplates: () => api.get('/api/workout-templates'),
-  createWorkoutTemplate: (data) => api.post('/api/workout-templates', data),
-  updateWorkoutTemplate: (id, data) => api.put(`/api/workout-templates/${id}`, data),
-  deleteWorkoutTemplate: (id) => api.delete(`/api/workout-templates/${id}`),
-  importWorkoutTemplates: (templates) => api.post('/api/workout-templates/import', { templates }),
+  getWorkoutTemplates(params) {
+    return api.get('/api/workout-templates', { params });
+  },
+  createWorkoutTemplate(data) {
+    return api.post('/api/workout-templates', data);
+  },
+  updateWorkoutTemplate(id, data) {
+    return api.put(`/api/workout-templates/${id}`, data);
+  },
+  retireWorkoutTemplate(id) {
+    return api.delete(`/api/workout-templates/${id}`);
+  },
+  restoreWorkoutTemplate(id) {
+    return api.patch(`/api/workout-templates/${id}/restore`);
+  },
+  hardDeleteWorkoutTemplate(id) {
+    return api.delete(`/api/workout-templates/${id}/permanent`);
+  },
+  importWorkoutTemplates(templates) {
+    return api.post('/api/workout-templates/import', { templates });
+  },
 
   // Completed Workouts
   getCompletedWorkouts: () => api.get('/api/completed-workouts'),
@@ -152,9 +174,13 @@ const apiService = {
   deleteCompletedWorkout: (id) => api.delete(`/api/completed-workouts/${id}`),
 
   // Users
-  getUsers: () => api.get('/api/users'),
+  getUsers: (params) => api.get('/api/users', { params }),
+  getUserById: (id) => api.get(`/api/users/${id}`),
   createUser: (data) => api.post('/api/users', data),
   updateUser: (id, data) => api.put(`/api/users/${id}`, data),
+  retireUser: (id) => api.delete(`/api/users/${id}`),
+  hardDeleteUser: (id) => api.delete(`/api/users/${id}/permanent`),
+  restoreUser: (id) => api.patch(`/api/users/${id}/restore`),
 };
 
 export default apiService;

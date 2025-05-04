@@ -11,7 +11,7 @@ const WorkoutTemplateSchema = new mongoose.Schema({
     trim: true
   },
   exercises: [{
-    _id: {
+    exerciseId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Exercise'
     },
@@ -26,10 +26,21 @@ const WorkoutTemplateSchema = new mongoose.Schema({
       default: 8
     }
   }],
+  // Soft deletion fields
+  isDeleted: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
   }
+}, {
+  timestamps: true
 });
 
 module.exports = mongoose.model('WorkoutTemplate', WorkoutTemplateSchema);

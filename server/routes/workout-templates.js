@@ -5,7 +5,15 @@ const WorkoutTemplate = require('../models/WorkoutTemplate');
 // Get all workout templates
 router.get('/', async (req, res) => {
   try {
-    const templates = await WorkoutTemplate.find().sort('-createdAt');
+    const includeDeleted = req.query.includeDeleted === 'true';
+    let query = {};
+    
+    // If not including deleted, filter them out
+    if (!includeDeleted) {
+      query.isDeleted = { $ne: true };
+    }
+    
+    const templates = await WorkoutTemplate.find(query).sort('-createdAt');
     res.json(templates);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -58,14 +66,62 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete a workout template
+// Soft delete (retire) a workout template
 router.delete('/:id', async (req, res) => {
   try {
-    const template = await WorkoutTemplate.findByIdAndDelete(req.params.id);
+    const template = await WorkoutTemplate.findById(req.params.id);
     if (!template) {
       return res.status(404).json({ message: 'Workout template not found' });
     }
-    res.json({ message: 'Workout template deleted' });
+    
+    // Soft delete by setting isDeleted flag and deletedAt timestamp
+    template.isDeleted = true;
+    template.deletedAt = new Date();
+    await template.save();
+    
+    res.json({ message: 'Workout template retired successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Restore a retired workout template
+router.patch('/:id/restore', async (req, res) => {
+  try {
+    const template = await WorkoutTemplate.findById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: 'Workout template not found' });
+    }
+    
+    // Restore by clearing isDeleted flag and deletedAt timestamp
+    template.isDeleted = false;
+    template.deletedAt = null;
+    await template.save();
+    
+    res.json({ message: 'Workout template restored successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Hard delete a workout template
+router.delete('/:id/permanent', async (req, res) => {
+  try {
+    const template = await WorkoutTemplate.findById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: 'Workout template not found' });
+    }
+    
+    // Only allow hard deletion of retired templates
+    if (!template.isDeleted) {
+      return res.status(400).json({ 
+        message: 'Cannot permanently delete an active template. Retire it first.' 
+      });
+    }
+    
+    // Perform the hard delete
+    await WorkoutTemplate.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Workout template permanently deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

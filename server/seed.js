@@ -26,8 +26,7 @@ const seedUsers = async () => {
     // Create default users
     const users = await User.create([
       { name: 'Jason', color: '#2196f3' },
-      { name: 'Sarah', color: '#f44336' },
-      { name: 'Mike', color: '#4caf50' }
+      { name: 'Andrew', color: '#f44336' }
     ]);
     
     console.log('Users seeded successfully:', users);
@@ -46,19 +45,21 @@ const seedExercises = async () => {
     
     // Create default exercises
     const exercises = await Exercise.create([
-      { name: 'Bench Press', defaultReps: 8, category: 'Chest' },
-      { name: 'Squat', defaultReps: 8, category: 'Legs' },
-      { name: 'Deadlift', defaultReps: 8, category: 'Back' },
-      { name: 'Shoulder Press', defaultReps: 8, category: 'Shoulders' },
-      { name: 'Barbell Row', defaultReps: 8, category: 'Back' },
-      { name: 'Pull Ups', defaultReps: 8, category: 'Back' },
-      { name: 'Dips', defaultReps: 8, category: 'Chest' },
-      { name: 'Bicep Curls', defaultReps: 12, category: 'Arms' },
-      { name: 'Tricep Extensions', defaultReps: 12, category: 'Arms' },
-      { name: 'Leg Press', defaultReps: 12, category: 'Legs' },
-      { name: 'Calf Raises', defaultReps: 15, category: 'Legs' },
-      { name: 'Lateral Raises', defaultReps: 15, category: 'Shoulders' },
-      { name: 'Face Pulls', defaultReps: 15, category: 'Shoulders' }
+      { name: 'Bench Press', defaultReps: 10, category: 'Chest' },
+      { name: 'Bulgarian Split Squat', defaultReps: 10, category: 'Legs (Glutes)' },
+      { name: 'Barbell Squat', defaultReps: 10, category: 'Legs (Quads)' },
+      { name: 'Belt Squat', defaultReps: 10, category: 'Legs (Quads)' },
+      { name: 'Deadlift', defaultReps: 10, category: 'Back' },
+      { name: 'Romanian Deadlift', defaultReps: 10, category: 'Legs (Hamstring)' },
+      { name: 'Military Shoulder Press', defaultReps: 10, category: 'Shoulders' },
+      { name: 'Seal Barbell Row', defaultReps: 10, category: 'Back' },
+      { name: 'Pull Ups', defaultReps: 10, category: 'Back' },
+      { name: 'Bicep Curls', defaultReps: 10, category: 'Arms' },
+      { name: 'Hammer Curls', defaultReps: 10, category: 'Arms' },
+      { name: 'Tricep Extensions', defaultReps: 10, category: 'Arms' },
+      { name: 'Calf Raises', defaultReps: 10, category: 'Legs (Calves)' },
+      { name: 'Dumbbell Reverse Flies', defaultReps: 10, category: 'Shoulders' },
+      { name: 'Face Pulls', defaultReps: 10, category: 'Shoulders' }
     ]);
     
     console.log(`${exercises.length} exercises seeded successfully`);
@@ -82,29 +83,32 @@ const seedWorkoutTemplates = async () => {
     const pushTemplate = {
       name: 'Push Day',
       exercises: [
-        { name: 'Bench Press', sets: 4, reps: 8 },
-        { name: 'Shoulder Press', sets: 3, reps: 10 },
-        { name: 'Dips', sets: 3, reps: 12 },
-        { name: 'Tricep Extensions', sets: 3, reps: 12 }
+        { name: 'Bench Press', sets: 4, reps: 10 },
+        { name: 'Military Shoulder Press', sets: 3, reps: 10 },
+        { name: 'Dumbbell Reverse Flies', sets: 3, reps: 10 },
+        { name: 'Tricep Extensions', sets: 3, reps: 10 }
       ]
     };
     
     const pullTemplate = {
       name: 'Pull Day',
       exercises: [
-        { name: 'Deadlift', sets: 3, reps: 8 },
-        { name: 'Barbell Row', sets: 3, reps: 10 },
-        { name: 'Pull Ups', sets: 3, reps: 8 },
-        { name: 'Bicep Curls', sets: 3, reps: 12 }
+        { name: 'Deadlift', sets: 3, reps: 10 },
+        { name: 'Seal Barbell Row', sets: 3, reps: 10 },
+        { name: 'Pull Ups', sets: 3, reps: 10 },
+        { name: 'Bicep Curls', sets: 3, reps: 10 },
+        { name: 'Hammer Curls', sets: 3, reps: 10 }
       ]
     };
     
     const legTemplate = {
       name: 'Leg Day',
       exercises: [
-        { name: 'Squat', sets: 4, reps: 8 },
-        { name: 'Leg Press', sets: 3, reps: 12 },
-        { name: 'Calf Raises', sets: 3, reps: 15 }
+        { name: 'Barbell Squat', sets: 4, reps: 10 },
+        { name: 'Belt Squat', sets: 3, reps: 10 },
+        { name: 'Bulgarian Split Squat', sets: 3, reps: 10 },
+        { name: 'Romanian Deadlift', sets: 3, reps: 10 },
+        { name: 'Calf Raises', sets: 3, reps: 10 }
       ]
     };
     

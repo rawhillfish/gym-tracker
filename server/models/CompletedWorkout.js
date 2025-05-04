@@ -7,6 +7,10 @@ const SetSchema = new mongoose.Schema({
 });
 
 const ExerciseSchema = new mongoose.Schema({
+  exerciseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Exercise'
+  },
   name: String,
   sets: [SetSchema]
 });

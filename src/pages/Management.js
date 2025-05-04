@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Tabs, Tab, Typography, Container } from '@mui/material';
 import ExerciseManager from './ExerciseManager';
 import WorkoutBuilder from './WorkoutBuilder';
+import UserManager from './UserManager';
 
 // TabPanel component to handle tab content display
 function TabPanel(props) {
@@ -59,6 +60,7 @@ const Management = () => {
           >
             <Tab label="Exercises" {...a11yProps(0)} />
             <Tab label="Workouts" {...a11yProps(1)} />
+            <Tab label="Users" {...a11yProps(2)} />
           </Tabs>
         </Box>
         
@@ -68,6 +70,10 @@ const Management = () => {
         
         <TabPanel value={activeTab} index={1}>
           <WorkoutBuilder isSubTab={true} />
+        </TabPanel>
+        
+        <TabPanel value={activeTab} index={2}>
+          <UserManager isSubTab={true} />
         </TabPanel>
       </Box>
     </Container>

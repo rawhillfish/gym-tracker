@@ -5,7 +5,24 @@ const Exercise = require('../models/Exercise');
 // Get all exercises
 router.get('/', async (req, res) => {
   try {
-    const exercises = await Exercise.find().sort('name');
+    // Check if we should include deleted exercises
+    const includeDeleted = req.query.includeDeleted === 'true';
+    
+    // Build query
+    let query = {};
+    if (!includeDeleted) {
+      query.isDeleted = { $ne: true };
+    }
+    
+    // Add category filter if provided
+    if (req.query.category) {
+      query.category = req.query.category;
+    }
+    
+    const exercises = await Exercise.find(query).sort('name');
+    console.log(`Found ${exercises.length} exercises with query:`, query);
+    console.log('Include deleted exercises:', includeDeleted);
+    
     res.json(exercises);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -31,7 +48,8 @@ router.post('/', async (req, res) => {
     name: req.body.name,
     defaultReps: req.body.defaultReps,
     category: req.body.category,
-    description: req.body.description
+    description: req.body.description,
+    isDeleted: req.body.isDeleted || false
   });
 
   try {
@@ -59,14 +77,51 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete an exercise
+// Soft delete an exercise
 router.delete('/:id', async (req, res) => {
   try {
-    const exercise = await Exercise.findByIdAndDelete(req.params.id);
+    // Find the exercise first to make sure it exists
+    const exercise = await Exercise.findById(req.params.id);
+    
     if (!exercise) {
       return res.status(404).json({ message: 'Exercise not found' });
     }
-    res.json({ message: 'Exercise deleted' });
+    
+    // Update the exercise to mark it as deleted
+    exercise.isDeleted = true;
+    exercise.deletedAt = new Date();
+    await exercise.save();
+    
+    res.json({ 
+      message: 'Exercise successfully marked as deleted',
+      exercise
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Restore a soft-deleted exercise
+router.patch('/:id/restore', async (req, res) => {
+  try {
+    const exercise = await Exercise.findById(req.params.id);
+    
+    if (!exercise) {
+      return res.status(404).json({ message: 'Exercise not found' });
+    }
+    
+    if (!exercise.isDeleted) {
+      return res.status(400).json({ message: 'Exercise is not deleted' });
+    }
+    
+    exercise.isDeleted = false;
+    exercise.deletedAt = null;
+    await exercise.save();
+    
+    res.json({ 
+      message: 'Exercise successfully restored',
+      exercise
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -79,10 +134,46 @@ router.post('/bulk', async (req, res) => {
       return res.status(400).json({ message: 'Exercises array is required' });
     }
     
-    const result = await Exercise.insertMany(req.body.exercises);
+    // Ensure all exercises have isDeleted set to false
+    const exercisesWithSoftDelete = req.body.exercises.map(exercise => ({
+      ...exercise,
+      isDeleted: false,
+      deletedAt: null
+    }));
+    
+    const result = await Exercise.insertMany(exercisesWithSoftDelete);
     res.status(201).json(result);
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+});
+
+// Hard delete an exercise (permanent deletion)
+router.delete('/:id/permanent', async (req, res) => {
+  try {
+    // Find the exercise first to make sure it exists
+    const exercise = await Exercise.findById(req.params.id);
+    
+    if (!exercise) {
+      return res.status(404).json({ message: 'Exercise not found' });
+    }
+    
+    // Check if the exercise is already soft-deleted
+    if (!exercise.isDeleted) {
+      return res.status(400).json({ 
+        message: 'Exercise must be soft-deleted before permanent deletion. Use the regular delete endpoint first.' 
+      });
+    }
+    
+    // Perform the hard deletion
+    await Exercise.findByIdAndDelete(req.params.id);
+    
+    res.json({ 
+      message: 'Exercise permanently deleted',
+      exerciseId: req.params.id
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
