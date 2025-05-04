@@ -121,12 +121,17 @@ const ActiveWorkout = () => {
     apiService.getWorkoutTemplates()
       .then(response => {
         if (response.data && response.data.length > 0) {
-          setWorkoutTemplates(response.data);
+          // Sort templates by name
+          const sortedTemplates = [...response.data].sort((a, b) => a.name.localeCompare(b.name));
+          setWorkoutTemplates(sortedTemplates);
         } else {
           // Fallback to localStorage if no templates in MongoDB
           const savedTemplates = localStorage.getItem('workoutTemplates');
           if (savedTemplates) {
-            setWorkoutTemplates(JSON.parse(savedTemplates));
+            const parsedTemplates = JSON.parse(savedTemplates);
+            // Sort templates by name
+            const sortedTemplates = [...parsedTemplates].sort((a, b) => a.name.localeCompare(b.name));
+            setWorkoutTemplates(sortedTemplates);
           }
         }
       })
@@ -135,7 +140,10 @@ const ActiveWorkout = () => {
         // Fallback to localStorage
         const savedTemplates = localStorage.getItem('workoutTemplates');
         if (savedTemplates) {
-          setWorkoutTemplates(JSON.parse(savedTemplates));
+          const parsedTemplates = JSON.parse(savedTemplates);
+          // Sort templates by name
+          const sortedTemplates = [...parsedTemplates].sort((a, b) => a.name.localeCompare(b.name));
+          setWorkoutTemplates(sortedTemplates);
         }
       });
 

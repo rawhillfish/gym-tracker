@@ -127,35 +127,151 @@ const updateWorkoutTemplates = async () => {
     exerciseMap[exercise.name] = exercise._id;
   });
   
-  // Define the latest template data
+  // Helper function to find exercise by name and get its ID
+  const findExerciseIdByName = (name) => {
+    if (!exerciseMap[name]) {
+      console.warn(`Exercise not found: ${name}`);
+      return null;
+    }
+    return exerciseMap[name];
+  };
+  
+  // Define the latest template data - using the 4 templates from reset-production-templates.js
   const latestTemplates = [
     {
-      name: 'Push Day',
+      name: '(1/4) 2DFB Barbell Squat',
+      description: '',
       exercises: [
-        { name: 'Bench Press', sets: 4, reps: 10 },
-        { name: 'Military Shoulder Press', sets: 3, reps: 10 },
-        { name: 'Dumbbell Reverse Flies', sets: 3, reps: 10 },
-        { name: 'Tricep Extensions', sets: 3, reps: 10 }
+        {
+          name: 'Barbell Squat',
+          category: 'Legs (Quads)',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Barbell Squat')
+        },
+        {
+          name: 'Belt Squat',
+          category: 'Legs (Quads)',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Belt Squat')
+        },
+        {
+          name: 'Pull Ups',
+          category: 'Back',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Pull Ups')
+        },
+        {
+          name: 'Military Shoulder Press',
+          category: 'Shoulders',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Military Shoulder Press')
+        }
       ]
     },
     {
-      name: 'Pull Day',
+      name: '(2/4) 2DFB Bench Press',
+      description: '',
       exercises: [
-        { name: 'Deadlift', sets: 3, reps: 10 },
-        { name: 'Seal Barbell Row', sets: 3, reps: 10 },
-        { name: 'Pull Ups', sets: 3, reps: 10 },
-        { name: 'Bicep Curls', sets: 3, reps: 10 },
-        { name: 'Hammer Curls', sets: 3, reps: 10 }
+        {
+          name: 'Bench Press',
+          category: 'Chest',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Bench Press')
+        },
+        {
+          name: 'Seal Barbell Row',
+          category: 'Back',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Seal Barbell Row')
+        },
+        {
+          name: 'Bulgarian Split Squat',
+          category: 'Legs (Glutes)',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Bulgarian Split Squat')
+        },
+        {
+          name: 'Deadlift',
+          category: 'Back',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Deadlift')
+        }
       ]
     },
     {
-      name: 'Leg Day',
+      name: '(3/4) 32DFB Deadlift',
+      description: '',
       exercises: [
-        { name: 'Barbell Squat', sets: 4, reps: 10 },
-        { name: 'Belt Squat', sets: 3, reps: 10 },
-        { name: 'Bulgarian Split Squat', sets: 3, reps: 10 },
-        { name: 'Romanian Deadlift', sets: 3, reps: 10 },
-        { name: 'Calf Raises', sets: 3, reps: 10 }
+        {
+          name: 'Deadlift',
+          category: 'Back',
+          sets: 5,
+          reps: 5,
+          exerciseId: findExerciseIdByName('Deadlift')
+        },
+        {
+          name: 'Bench Press',
+          category: 'Chest',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Bench Press')
+        },
+        {
+          name: 'Seal Barbell Row',
+          category: 'Back',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Seal Barbell Row')
+        },
+        {
+          name: 'Bulgarian Split Squat',
+          category: 'Legs (Glutes)',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Bulgarian Split Squat')
+        }
+      ]
+    },
+    {
+      name: '(4/4) 2DFB Barbell Row',
+      description: '',
+      exercises: [
+        {
+          name: 'Seal Barbell Row',
+          category: 'Back',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Seal Barbell Row')
+        },
+        {
+          name: 'Military Shoulder Press',
+          category: 'Shoulders',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Military Shoulder Press')
+        },
+        {
+          name: 'Pull Ups',
+          category: 'Back',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Pull Ups')
+        },
+        {
+          name: 'Deadlift',
+          category: 'Back',
+          sets: 3,
+          reps: 10,
+          exerciseId: findExerciseIdByName('Deadlift')
+        }
       ]
     }
   ];
@@ -169,22 +285,13 @@ const updateWorkoutTemplates = async () => {
     // Check if template exists by name
     const existingTemplate = existingTemplates.find(t => t.name === latestTemplate.name);
     
-    // Prepare exercises with IDs
-    const exercisesWithIds = latestTemplate.exercises.map(exercise => {
-      return {
-        name: exercise.name,
-        exerciseId: exerciseMap[exercise.name],
-        sets: exercise.sets,
-        reps: exercise.reps
-      };
-    });
-    
     if (existingTemplate) {
       // Update existing template
       console.log(`Updating template: ${existingTemplate.name}`);
       await WorkoutTemplate.findByIdAndUpdate(existingTemplate._id, {
         name: latestTemplate.name,
-        exercises: exercisesWithIds,
+        description: latestTemplate.description,
+        exercises: latestTemplate.exercises,
         isDeleted: false
       });
     } else {
@@ -192,7 +299,8 @@ const updateWorkoutTemplates = async () => {
       console.log(`Creating new template: ${latestTemplate.name}`);
       await WorkoutTemplate.create({
         name: latestTemplate.name,
-        exercises: exercisesWithIds,
+        description: latestTemplate.description,
+        exercises: latestTemplate.exercises,
         isDeleted: false
       });
     }

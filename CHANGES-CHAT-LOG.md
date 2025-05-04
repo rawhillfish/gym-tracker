@@ -388,7 +388,7 @@ This document tracks all interactions between the developer and the AI assistant
      - Added expand/collapse icons to each category header
      - Wrapped category content in Material-UI Collapse component for smooth animations
      - Set all categories to be expanded by default
-   - Improved the layout of category headers:
+   - Enhanced the layout of category headers:
      - Added a flex container to position the category name and toggle button
      - Maintained the count indicators showing number of exercises per category
      - Ensured consistent styling across all category sections
@@ -430,7 +430,7 @@ This document tracks all interactions between the developer and the AI assistant
      - Added new leg-specific categories: 'Legs (Quads)', 'Legs (Hamstring)', 'Legs (Glutes)'
      - Removed 'Legs', 'Arms', and 'Cardio' categories
      - Kept 'Chest', 'Back', 'Shoulders', 'Core', and 'Other'
-   - Updated the category enum in the backend Exercise model to match the frontend categories
+   - Updated the backend Exercise model to match the frontend categories
    - Ensured consistency between frontend and backend category definitions
 
 4. **Files Edited**:
@@ -1342,5 +1342,99 @@ WorkoutBuilder.js:144 Error details: {message: 'WorkoutTemplate validation faile
 4. **Files Edited**:
    - `/home/jasonpovey/repos/gym-tracker/server/scripts/resetDatabase.js`
    - `/home/jasonpovey/repos/gym-tracker/server/seed.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Update production database with current workout templates
+
+1. **User Request**: "i have push this to prod, can you update the backend and then reset the production databse"
+
+2. **Understanding**: The user has pushed the code changes to production and now wants to update the production database to use the current 4 saved workout templates. This involves connecting to the production MongoDB database, deleting the existing workout templates, and creating the new ones with the proper exercise references.
+
+3. **Actions Taken**:
+   - Examined the deployment configuration and production update scripts
+   - Created a custom script (reset-production-templates.js) specifically for resetting workout templates in production
+   - The script connects to the production MongoDB database using the .env.production configuration
+   - It deletes all existing workout templates and creates the 4 new templates:
+     - (1/4) 2DFB Barbell Squat
+     - (2/4) 2DFB Bench Press
+     - (3/4) 32DFB Deadlift
+     - (4/4) 2DFB Barbell Row
+   - Each template includes proper exercise references with correct IDs mapped to production exercise IDs
+   - Added confirmation prompts to prevent accidental database changes
+   - Ran the script with NODE_ENV=production to target the production database
+   - Verified successful creation of all templates in production
+   - Updated the CHANGES.md file to document these changes
+
+4. **Files Created**:
+   - `/home/jasonpovey/repos/gym-tracker/server/scripts/reset-production-templates.js`
+
+5. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Update update-production-db.js script with current workout templates
+
+1. **User Request**: "can you get the reset-production-templates.js templates added to @[server/scripts/update-production-db.js]"
+
+2. **Understanding**: The user wants to update the update-production-db.js script to use the same 4 workout templates that were added to the reset-production-templates.js script. This ensures that both scripts use the same template data when updating the production database.
+
+3. **Actions Taken**:
+   - Examined the current implementation of updateWorkoutTemplates in update-production-db.js
+   - Identified that it was using the old default templates (Push Day, Pull Day, Leg Day)
+   - Copied the 4 current workout templates from reset-production-templates.js:
+     - (1/4) 2DFB Barbell Squat
+     - (2/4) 2DFB Bench Press
+     - (3/4) 32DFB Deadlift
+     - (4/4) 2DFB Barbell Row
+   - Added the findExerciseIdByName helper function for consistent exercise ID mapping
+   - Updated the template creation logic to use the full exercise objects with category information
+   - Removed the redundant exercisesWithIds mapping since the templates already include exerciseId
+   - Added description field to the template update and creation operations
+   - Updated the CHANGES.md file to document this update
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/server/scripts/update-production-db.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Add sorting to workout templates when starting a workout
+
+1. **User Request**: "can you add sorting to the list of workout templates disaplyeed when starting a workout"
+
+2. **Understanding**: The user wants to improve the user experience by sorting the workout templates that are displayed in the template selection dialog when starting a workout. Currently, the templates are displayed in the order they are retrieved from the database or localStorage, which may not be optimal for finding specific templates.
+
+3. **Actions Taken**:
+   - Identified the code in ActiveWorkout.js that fetches and displays workout templates
+   - Added sorting logic to sort templates alphabetically by name
+   - Implemented sorting in three places:
+     - When templates are fetched from the database
+     - When templates are loaded from localStorage as a primary source
+     - When templates are loaded from localStorage as a fallback
+   - Used JavaScript's sort method with localeCompare for proper alphabetical sorting
+   - Ensured original arrays were not mutated by creating copies before sorting
+   - Updated the CHANGES.md file to document this user interface improvement
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/ActiveWorkout.js`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
+   - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`
+
+### Request: Add sorting to saved workout templates page
+
+1. **User Request**: "can you also make this change for the saved work templates page for both active templates and retired templates"
+
+2. **Understanding**: The user wants to extend the sorting functionality to the WorkoutBuilder page, where both active and retired workout templates are displayed. This ensures consistent sorting behavior throughout the application.
+
+3. **Actions Taken**:
+   - Examined the WorkoutBuilder.js file to identify where templates are fetched and displayed
+   - Added sorting logic for active templates when they are fetched from the API
+   - Added sorting logic for retired templates when they are fetched from the API
+   - Used the same alphabetical sorting approach (localeCompare) for consistency
+   - Ensured original arrays were not mutated by creating copies before sorting
+   - Updated the CHANGES.md file to document the extended sorting functionality
+
+4. **Files Edited**:
+   - `/home/jasonpovey/repos/gym-tracker/src/pages/WorkoutBuilder.js`
    - `/home/jasonpovey/repos/gym-tracker/CHANGES.md`
    - `/home/jasonpovey/repos/gym-tracker/CHANGES-CHAT-LOG.md`

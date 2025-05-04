@@ -61,7 +61,10 @@ const WorkoutBuilder = ({ isSubTab = false }) => {
       .then(response => {
         const data = response.data;
         if (Array.isArray(data)) {
-          setWorkoutTemplates(data.filter(template => !template.isDeleted));
+          // Filter active templates and sort by name
+          const activeTemplates = data.filter(template => !template.isDeleted);
+          const sortedTemplates = [...activeTemplates].sort((a, b) => a.name.localeCompare(b.name));
+          setWorkoutTemplates(sortedTemplates);
         } else {
           setWorkoutTemplates([]);
         }
@@ -73,7 +76,10 @@ const WorkoutBuilder = ({ isSubTab = false }) => {
       .then(response => {
         const data = response.data;
         if (Array.isArray(data)) {
-          setRetiredTemplates(data.filter(template => template.isDeleted));
+          // Filter retired templates and sort by name
+          const retiredTemplatesArray = data.filter(template => template.isDeleted);
+          const sortedRetiredTemplates = [...retiredTemplatesArray].sort((a, b) => a.name.localeCompare(b.name));
+          setRetiredTemplates(sortedRetiredTemplates);
         } else {
           setRetiredTemplates([]);
         }
