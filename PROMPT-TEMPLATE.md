@@ -40,7 +40,139 @@ The application uses the following technologies and patterns:
 - API Communication: Axios
 - Soft Deletion: For preserving historical data while allowing "deletion"
 
-My current task is: [DESCRIBE YOUR CURRENT TASK HERE]
+My current task is: 'Update Template' button on edit workout template does not do anything' Here is console log: 'WorkoutBuilder.js:86 ===== SAVE TEMPLATE DEBUG =====
+WorkoutBuilder.js:87 Current selectedExercises: (4) [{…}, {…}, {…}, {…}]
+WorkoutBuilder.js:101 Saving exercise: Deadlift, ID: temp-exercise-0-1746343268866, sets: 5, reps: 5
+WorkoutBuilder.js:101 Saving exercise: Bench Press, ID: temp-exercise-1-1746343268867, sets: 5, reps: 10
+WorkoutBuilder.js:101 Saving exercise: Seal Barbell Row, ID: temp-exercise-2-1746343268867, sets: 5, reps: 10
+WorkoutBuilder.js:101 Saving exercise: Bulgarian Split Squat, ID: temp-exercise-3-1746343268867, sets: 5, reps: 10
+WorkoutBuilder.js:110 Template data: {
+  "name": "2DFB Deadlift",
+  "description": "",
+  "exercises": [
+    {
+      "_id": "temp-exercise-0-1746343268866",
+      "name": "Deadlift",
+      "category": "Back",
+      "sets": 5,
+      "reps": 5
+    },
+    {
+      "_id": "temp-exercise-1-1746343268867",
+      "name": "Bench Press",
+      "category": "Chest",
+      "sets": 5,
+      "reps": 10
+    },
+    {
+      "_id": "temp-exercise-2-1746343268867",
+      "name": "Seal Barbell Row",
+      "category": "Back",
+      "sets": 5,
+      "reps": 10
+    },
+    {
+      "_id": "temp-exercise-3-1746343268867",
+      "name": "Bulgarian Split Squat",
+      "category": "Legs (Glutes)",
+      "sets": 5,
+      "reps": 10
+    }
+  ]
+}
+WorkoutBuilder.js:111 ===== END SAVE TEMPLATE DEBUG =====
+WorkoutBuilder.js:114 Updating existing template: 681708c2dcb707deeba2f3fb
+api.js:57 API Request [PUT]: /api/workout-templates/681708c2dcb707deeba2f3fb
+api.js:154 
+            
+            
+           PUT http://localhost:5000/api/workout-templates/681708c2dcb707deeba2f3fb 400 (Bad Request)
+dispatchXhrRequest @ xhr.js:195
+xhr @ xhr.js:15
+dispatchRequest @ dispatchRequest.js:51
+Promise.then
+_request @ Axios.js:163
+request @ Axios.js:40
+httpMethod @ Axios.js:226
+wrap @ bind.js:5
+updateWorkoutTemplate @ api.js:154
+handleSaveTemplate @ WorkoutBuilder.js:116
+callCallback @ react-dom.development.js:4164
+invokeGuardedCallbackDev @ react-dom.development.js:4213
+invokeGuardedCallback @ react-dom.development.js:4277
+invokeGuardedCallbackAndCatchFirstError @ react-dom.development.js:4291
+executeDispatch @ react-dom.development.js:9041
+processDispatchQueueItemsInOrder @ react-dom.development.js:9073
+processDispatchQueue @ react-dom.development.js:9086
+dispatchEventsForPlugins @ react-dom.development.js:9097
+(anonymous) @ react-dom.development.js:9288
+batchedUpdates$1 @ react-dom.development.js:26179
+batchedUpdates @ react-dom.development.js:3991
+dispatchEventForPluginEventSystem @ react-dom.development.js:9287
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ react-dom.development.js:6465
+dispatchEvent @ react-dom.development.js:6457
+dispatchDiscreteEvent @ react-dom.development.js:6430
+api.js:112 API Client Error: {status: 400, data: {…}, url: '/api/workout-templates/681708c2dcb707deeba2f3fb', method: 'put'}
+(anonymous) @ api.js:112
+Promise.then
+_request @ Axios.js:163
+request @ Axios.js:40
+httpMethod @ Axios.js:226
+wrap @ bind.js:5
+updateWorkoutTemplate @ api.js:154
+handleSaveTemplate @ WorkoutBuilder.js:116
+callCallback @ react-dom.development.js:4164
+invokeGuardedCallbackDev @ react-dom.development.js:4213
+invokeGuardedCallback @ react-dom.development.js:4277
+invokeGuardedCallbackAndCatchFirstError @ react-dom.development.js:4291
+executeDispatch @ react-dom.development.js:9041
+processDispatchQueueItemsInOrder @ react-dom.development.js:9073
+processDispatchQueue @ react-dom.development.js:9086
+dispatchEventsForPlugins @ react-dom.development.js:9097
+(anonymous) @ react-dom.development.js:9288
+batchedUpdates$1 @ react-dom.development.js:26179
+batchedUpdates @ react-dom.development.js:3991
+dispatchEventForPluginEventSystem @ react-dom.development.js:9287
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ react-dom.development.js:6465
+dispatchEvent @ react-dom.development.js:6457
+dispatchDiscreteEvent @ react-dom.development.js:6430
+WorkoutBuilder.js:143 Error saving workout template: AxiosError {message: 'Request failed with status code 400', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}
+handleSaveTemplate @ WorkoutBuilder.js:143
+await in handleSaveTemplate
+callCallback @ react-dom.development.js:4164
+invokeGuardedCallbackDev @ react-dom.development.js:4213
+invokeGuardedCallback @ react-dom.development.js:4277
+invokeGuardedCallbackAndCatchFirstError @ react-dom.development.js:4291
+executeDispatch @ react-dom.development.js:9041
+processDispatchQueueItemsInOrder @ react-dom.development.js:9073
+processDispatchQueue @ react-dom.development.js:9086
+dispatchEventsForPlugins @ react-dom.development.js:9097
+(anonymous) @ react-dom.development.js:9288
+batchedUpdates$1 @ react-dom.development.js:26179
+batchedUpdates @ react-dom.development.js:3991
+dispatchEventForPluginEventSystem @ react-dom.development.js:9287
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ react-dom.development.js:6465
+dispatchEvent @ react-dom.development.js:6457
+dispatchDiscreteEvent @ react-dom.development.js:6430
+WorkoutBuilder.js:144 Error details: {message: 'WorkoutTemplate validation failed: exercises.0._id…ises.3.exerciseId: Path `exerciseId` is required.'}
+handleSaveTemplate @ WorkoutBuilder.js:144
+await in handleSaveTemplate
+callCallback @ react-dom.development.js:4164
+invokeGuardedCallbackDev @ react-dom.development.js:4213
+invokeGuardedCallback @ react-dom.development.js:4277
+invokeGuardedCallbackAndCatchFirstError @ react-dom.development.js:4291
+executeDispatch @ react-dom.development.js:9041
+processDispatchQueueItemsInOrder @ react-dom.development.js:9073
+processDispatchQueue @ react-dom.development.js:9086
+dispatchEventsForPlugins @ react-dom.development.js:9097
+(anonymous) @ react-dom.development.js:9288
+batchedUpdates$1 @ react-dom.development.js:26179
+batchedUpdates @ react-dom.development.js:3991
+dispatchEventForPluginEventSystem @ react-dom.development.js:9287
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ react-dom.development.js:6465
+dispatchEvent @ react-dom.development.js:6457
+dispatchDiscreteEvent @ react-dom.development.js:6430
+'
 
 Please help me with this task while maintaining the established documentation practices.
 ```

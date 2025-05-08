@@ -10,6 +10,11 @@ const WorkoutTemplateSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
   exercises: [{
     exerciseId: {
       type: String,

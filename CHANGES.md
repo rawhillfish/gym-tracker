@@ -226,6 +226,25 @@ This document tracks all significant changes made to the Gym Tracker application
 
 ## 2025-05-06
 
+### Authentication
+- Added user authentication functionality:
+  - Created JWT-based authentication system for secure user access
+  - Implemented Auth model with password encryption using bcrypt
+  - Added authentication routes for register, login, and password management
+  - Created protected route middleware to secure API endpoints
+  - Updated environment configuration to support JWT tokens
+  - Designed authentication context for global state management
+  - Added token handling in API service for authenticated requests
+  - Created Login and Registration pages with form validation
+  - Added user profile page with password change functionality
+  - Created landing page for unauthenticated users with features overview
+  - Implemented redirection to landing page for unauthenticated users
+  - Updated Navbar to display user information and authentication options
+  - Implemented protected routes to secure management pages
+  - Added login credentials for existing users (Jason and Andrew)
+  - Updated database seeding to include authentication records
+  - Removed ability to add users from User Management tab (users can only be created through registration)
+
 ### User Interface Improvements
 - Added sorting to workout templates across the application
   - Templates are now sorted alphabetically by name when starting a workout
@@ -388,6 +407,26 @@ This document tracks all significant changes made to the Gym Tracker application
   - Includes a status indicator showing which points are selected
   - Provides a reset button to clear the current selection
   - Works seamlessly with the multi-user feature to compare across users
+
+## 2025-05-10
+
+### User Experience Improvements
+- Added user-specific workout templates:
+  - Users can now create and manage their own personal workout templates
+  - Templates are associated with the user who created them
+  - Added tabs to separate personal templates from global templates
+  - Visual indicators to distinguish between personal and global templates
+  - Updated backend routes to enforce proper access control for templates
+  - Protected routes to ensure users can only modify their own templates
+
+## 2025-05-11
+
+### User Management
+- Added admin user functionality that allows admin users to create, edit, and retire global templates
+- Users can only edit and delete their own templates
+- Updated the UI to visually distinguish between user-specific and global templates
+- Updated seed script to designate Jason as an admin user
+- Seed script now creates both global templates and user-specific templates
 
 ## Planned Changes
 

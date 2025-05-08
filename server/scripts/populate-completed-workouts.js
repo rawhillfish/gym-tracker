@@ -108,14 +108,15 @@ const generateCompletedWorkout = (template, user, startDate) => {
     };
   });
   
-  // Create the completed workout
+  // Create the completed workout with both user and userId fields
   return {
     templateId: template._id,
     templateName: template.name,
     startTime: startDate,
     endTime: endDate,
     exercises,
-    user: user._id
+    user: user._id,
+    userId: user._id // Add userId field for backward compatibility
   };
 };
 
@@ -184,7 +185,11 @@ const populateCompletedWorkouts = async () => {
     console.log('\nSample of created workouts:');
     for (let i = 0; i < Math.min(5, savedWorkouts.length); i++) {
       const workout = savedWorkouts[i];
-      console.log(`- ${workout.templateName} by ${workout.user} on ${workout.startTime.toLocaleDateString()}`);
+      // Find the user to display the name
+      const workoutUser = users.find(u => u._id.toString() === workout.user.toString());
+      const userName = workoutUser ? workoutUser.name : 'Unknown User';
+      
+      console.log(`- ${workout.templateName} by ${userName} on ${workout.startTime.toLocaleDateString()}`);
       console.log(`  Duration: ${Math.round((workout.endTime - workout.startTime) / (60 * 1000))} minutes`);
       console.log(`  Exercises: ${workout.exercises.length}`);
       console.log(`  Total sets: ${workout.exercises.reduce((total, ex) => total + ex.sets.length, 0)}`);

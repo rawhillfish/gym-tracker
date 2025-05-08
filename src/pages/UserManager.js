@@ -23,7 +23,6 @@ import {
   FormControlLabel
 } from '@mui/material';
 import { 
-  Add as AddIcon, 
   Edit as EditIcon, 
   Delete as DeleteIcon,
   Restore as RestoreIcon,
@@ -119,13 +118,6 @@ const UserManager = ({ isSubTab }) => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Handle dialog open for creating a new user
-  const handleAddUser = () => {
-    setCurrentUser({ name: '', color: '#1976d2', retired: false });
-    setIsEditing(false);
-    setOpenDialog(true);
-  };
-
   // Handle dialog open for editing an existing user
   const handleEditUser = (user) => {
     setCurrentUser({ ...user });
@@ -143,7 +135,7 @@ const UserManager = ({ isSubTab }) => {
     setCurrentUser({ ...currentUser, color });
   };
 
-  // Handle form submission for creating or updating a user
+  // Handle form submission for updating a user
   const handleSubmit = async () => {
     if (!currentUser.name.trim()) {
       setSnackbar({
@@ -155,40 +147,26 @@ const UserManager = ({ isSubTab }) => {
     }
 
     try {
-      if (isEditing) {
-        // Update existing user
-        await apiService.updateUser(currentUser._id, {
-          name: currentUser.name,
-          color: currentUser.color,
-          retired: currentUser.retired
-        });
-        setSnackbar({
-          open: true,
-          message: 'User updated successfully',
-          severity: 'success'
-        });
-      } else {
-        // Create new user
-        await apiService.createUser({
-          name: currentUser.name,
-          color: currentUser.color,
-          retired: currentUser.retired
-        });
-        setSnackbar({
-          open: true,
-          message: 'User created successfully',
-          severity: 'success'
-        });
-      }
+      // Update existing user
+      await apiService.updateUser(currentUser._id, {
+        name: currentUser.name,
+        color: currentUser.color,
+        retired: currentUser.retired
+      });
+      setSnackbar({
+        open: true,
+        message: 'User updated successfully',
+        severity: 'success'
+      });
       
       // Close dialog and refresh user list
       setOpenDialog(false);
       fetchUsers();
     } catch (err) {
-      console.error('Error saving user:', err);
+      console.error('Error updating user:', err);
       setSnackbar({
         open: true,
-        message: `Failed to ${isEditing ? 'update' : 'create'} user: ${err.response?.data?.message || err.message}`,
+        message: `Failed to update user: ${err.response?.data?.message || err.message}`,
         severity: 'error'
       });
     }
@@ -199,7 +177,7 @@ const UserManager = ({ isSubTab }) => {
     if (!window.confirm('Are you sure you want to retire this user?')) {
       return;
     }
-    
+
     try {
       await apiService.retireUser(userId);
       setSnackbar({
@@ -218,31 +196,25 @@ const UserManager = ({ isSubTab }) => {
     }
   };
 
-  // Handle hard delete of a user
+  // Handle permanent deletion of a user
   const handleHardDeleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to permanently delete this retired user? This action cannot be undone.')) {
+    if (!window.confirm('Are you sure you want to permanently delete this user? This action cannot be undone.')) {
       return;
     }
-    
+
     try {
       await apiService.hardDeleteUser(userId);
       setSnackbar({
         open: true,
-        message: 'User permanently deleted successfully',
+        message: 'User permanently deleted',
         severity: 'success'
       });
       fetchUsers();
     } catch (err) {
-      console.error('Error permanently deleting user:', err);
-      
-      // More informative error message
-      const errorMessage = err.response && err.response.status === 404
-        ? 'Server error: The permanent delete endpoint is not available. Please restart the server.'
-        : err.response?.data?.message || err.message || 'An unknown error occurred';
-      
+      console.error('Error deleting user:', err);
       setSnackbar({
         open: true,
-        message: errorMessage,
+        message: `Failed to delete user: ${err.response?.data?.message || err.message}`,
         severity: 'error'
       });
     }
@@ -251,7 +223,27 @@ const UserManager = ({ isSubTab }) => {
   // Handle restoration of a retired user
   const handleRestoreUser = async (userId) => {
     try {
-      await apiService.restoreUser(userId);
+      // Find the user in the retired users list
+      const user = retiredUsers.find(u => u._id === userId);
+      
+      if (!user) {
+        setSnackbar({
+          open: true,
+          message: 'User not found in retired list',
+          severity: 'error'
+        });
+        return;
+      }
+      
+      // Check if the user is deleted (soft deleted) or just retired
+      if (user.isDeleted) {
+        // If the user is soft deleted, use the restore endpoint
+        await apiService.restoreUser(userId);
+      } else if (user.retired) {
+        // If the user is just retired but not deleted, update the user to un-retire them
+        await apiService.updateUser(userId, { retired: false });
+      }
+      
       setSnackbar({
         open: true,
         message: 'User restored successfully',
@@ -275,15 +267,13 @@ const UserManager = ({ isSubTab }) => {
 
   return (
     <Container maxWidth="md" sx={{ mt: isSubTab ? 0 : 4, mb: 4 }}>
-      <Box display="flex" justifyContent="flex-end" mb={3}>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={handleAddUser}
-        >
-          Add User
-        </Button>
+      <Box display="flex" justifyContent="space-between" mb={3}>
+        <Typography variant="h5" component="h1">
+          User Management
+        </Typography>
+        <Typography variant="body2" color="textSecondary" sx={{ fontStyle: 'italic' }}>
+          New users can be created through the registration page
+        </Typography>
       </Box>
 
       {error && (
@@ -399,10 +389,10 @@ const UserManager = ({ isSubTab }) => {
         </Grid>
       </Grid>
 
-      {/* Dialog for adding/editing users */}
+      {/* Dialog for editing users */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {isEditing ? 'Edit User' : 'Add New User'}
+          Edit User
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
@@ -452,7 +442,7 @@ const UserManager = ({ isSubTab }) => {
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
           <Button onClick={handleSubmit} variant="contained" color="primary">
-            {isEditing ? 'Update' : 'Create'}
+            Update
           </Button>
         </DialogActions>
       </Dialog>

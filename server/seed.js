@@ -3,6 +3,7 @@ require('dotenv').config();
 const User = require('./models/User');
 const Exercise = require('./models/Exercise');
 const WorkoutTemplate = require('./models/WorkoutTemplate');
+const Auth = require('./models/Auth');
 
 // Connect to MongoDB
 const connectDB = async () => {
@@ -34,6 +35,61 @@ const seedUsers = async () => {
     return users;
   } catch (error) {
     console.error('Error seeding users:', error);
+    throw error;
+  }
+};
+
+// Seed Authentication Records
+const seedAuth = async (users) => {
+  try {
+    // Clear existing auth records
+    await Auth.deleteMany({});
+    
+    // Create auth records for each user
+    const authRecords = await Promise.all(users.map(async (user) => {
+      let email, password, isAdmin = false;
+      
+      // Set specific credentials for known users
+      if (user.name === 'Jason') {
+        email = 'jason@example.com';
+        isAdmin = true; // Make Jason an admin
+      } else if (user.name === 'Andrew') {
+        email = 'andrew@example.com';
+      } else {
+        // For default or other users, generate an email based on name
+        email = `${user.name.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+      }
+      
+      // Use the same password for all users in development
+      password = 'password123';
+      
+      // Create the auth record
+      return Auth.create({
+        email,
+        password, // This will be hashed by the pre-save hook
+        userId: user._id,
+        isAdmin // Set the admin status
+      });
+    }));
+    
+    console.log('Auth records seeded successfully:', authRecords.length);
+    
+    // Log the login credentials
+    console.log('\nLogin credentials:');
+    users.forEach((user, index) => {
+      console.log(`${user.name}:`);
+      console.log(`  Email: ${authRecords[index].email}`);
+      console.log(`  Password: password123`);
+      if (authRecords[index].isAdmin) {
+        console.log(`  Role: Admin`);
+      } else {
+        console.log(`  Role: User`);
+      }
+    });
+    
+    return authRecords;
+  } catch (error) {
+    console.error('Error seeding auth records:', error);
     throw error;
   }
 };
@@ -76,179 +132,108 @@ const seedExercises = async () => {
 };
 
 // Seed Workout Templates
-const seedWorkoutTemplates = async () => {
+const seedWorkoutTemplates = async (users) => {
   try {
-    // Clear existing templates
+    // Clear existing workout templates
     await WorkoutTemplate.deleteMany({});
     
-    // Get all exercises to reference in templates
-    const allExercises = await Exercise.find({});
+    // Get all exercises
+    const exercises = await Exercise.find({});
     
-    // Helper function to find exercise by name and get its ID
-    const findExerciseIdByName = (name) => {
-      const exercise = allExercises.find(e => e.name === name);
+    // Find specific exercises for templates
+    const findExercise = (name) => {
+      const exercise = exercises.find(e => e.name === name);
       if (!exercise) {
-        console.warn(`Exercise not found: ${name}`);
+        console.error(`Exercise not found: ${name}`);
         return null;
       }
-      return exercise._id;
+      return exercise;
     };
     
-    // Create templates with exercise references and explicit exerciseId
-    // Using the current 4 saved workout templates
-    const template1 = {
-      name: '(1/4) 2DFB Barbell Squat',
-      description: '',
-      exercises: [
-        {
-          name: 'Barbell Squat',
-          category: 'Legs (Quads)',
+    // Create template helper function
+    const createTemplate = (name, description, exerciseNames, userId = null) => {
+      const templateExercises = exerciseNames.map(name => {
+        const exercise = findExercise(name);
+        if (!exercise) return null;
+        
+        return {
+          exerciseId: exercise._id.toString(),
+          name: exercise.name,
+          category: exercise.category,
           sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Barbell Squat')
-        },
-        {
-          name: 'Belt Squat',
-          category: 'Legs (Quads)',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Belt Squat')
-        },
-        {
-          name: 'Pull Ups',
-          category: 'Back',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Pull Ups')
-        },
-        {
-          name: 'Military Shoulder Press',
-          category: 'Shoulders',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Military Shoulder Press')
-        }
-      ]
+          reps: exercise.defaultReps || 8
+        };
+      }).filter(Boolean); // Remove any null entries
+      
+      return {
+        name,
+        description,
+        exercises: templateExercises,
+        userId // null for global templates, user ID for user-specific templates
+      };
     };
     
-    const template2 = {
-      name: '(2/4) 2DFB Bench Press',
-      description: '',
-      exercises: [
-        {
-          name: 'Bench Press',
-          category: 'Chest',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Bench Press')
-        },
-        {
-          name: 'Seal Barbell Row',
-          category: 'Back',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Seal Barbell Row')
-        },
-        {
-          name: 'Bulgarian Split Squat',
-          category: 'Legs (Glutes)',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Bulgarian Split Squat')
-        },
-        {
-          name: 'Deadlift',
-          category: 'Back',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Deadlift')
-        }
-      ]
-    };
+    // Find Jason's user ID for user-specific templates
+    const jasonUser = users.find(user => user.name === 'Jason');
+    const jasonId = jasonUser ? jasonUser._id : null;
     
-    const template3 = {
-      name: '(3/4) 32DFB Deadlift',
-      description: '',
-      exercises: [
-        {
-          name: 'Deadlift',
-          category: 'Back',
-          sets: 5,
-          reps: 5,
-          exerciseId: findExerciseIdByName('Deadlift')
-        },
-        {
-          name: 'Bench Press',
-          category: 'Chest',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Bench Press')
-        },
-        {
-          name: 'Seal Barbell Row',
-          category: 'Back',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Seal Barbell Row')
-        },
-        {
-          name: 'Bulgarian Split Squat',
-          category: 'Legs (Glutes)',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Bulgarian Split Squat')
-        }
-      ]
-    };
+    // Find Andrew's user ID for user-specific templates
+    const andrewUser = users.find(user => user.name === 'Andrew');
+    const andrewId = andrewUser ? andrewUser._id : null;
     
-    const template4 = {
-      name: '(4/4) 2DFB Barbell Row',
-      description: '',
-      exercises: [
-        {
-          name: 'Seal Barbell Row',
-          category: 'Back',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Seal Barbell Row')
-        },
-        {
-          name: 'Military Shoulder Press',
-          category: 'Shoulders',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Military Shoulder Press')
-        },
-        {
-          name: 'Pull Ups',
-          category: 'Back',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Pull Ups')
-        },
-        {
-          name: 'Deadlift',
-          category: 'Back',
-          sets: 3,
-          reps: 10,
-          exerciseId: findExerciseIdByName('Deadlift')
-        }
-      ]
-    };
+    // Create templates
+    const templateData = [
+      // Global templates (userId: null)
+      createTemplate(
+        '2DFB (1/4) Barbell Squat',
+        'A 2-day full body workout starting with barbell squats',
+        ['Barbell Squat', 'Belt Squat', 'Pull Ups', 'Military Shoulder Press'],
+        null // Global template
+      ),
+      createTemplate(
+        '2DFB (2/4) Bench Press',
+        'A 2-day full body workout starting with bench press',
+        ['Bench Press', 'Seal Barbell Row', 'Bulgarian Split Squat', 'Deadlift'],
+        null // Global template
+      ),
+      createTemplate(
+        '2DFB (3/4) Deadlift',
+        'A 2-day full body workout starting with deadlifts',
+        ['Deadlift', 'Bench Press', 'Seal Barbell Row', 'Bulgarian Split Squat'],
+        null // Global template
+      ),
+      createTemplate(
+        '2DFB (4/4) Barbell Row',
+        'A 2-day full body workout starting with barbell rows',
+        ['Seal Barbell Row', 'Military Shoulder Press', 'Pull Ups', 'Deadlift'],
+        null // Global template
+      ),
+      
+      // Jason's personal templates
+      createTemplate(
+        'Jason\'s Push Day',
+        'Jason\'s personal push workout routine',
+        ['Bench Press', 'Military Shoulder Press', 'Dips', 'Tricep Extensions'],
+        jasonId
+      ),
+      
+      // Andrew's personal templates
+      createTemplate(
+        'Andrew\'s Pull Day',
+        'Andrew\'s personal pull workout routine',
+        ['Pull Ups', 'Seal Barbell Row', 'Bicep Curls', 'Deadlift'],
+        andrewId
+      )
+    ];
     
-    // Create the templates
-    const templates = await WorkoutTemplate.create([
-      template1,
-      template2,
-      template3,
-      template4
-    ]);
+    // Create templates in database
+    const templates = await WorkoutTemplate.create(templateData);
     
     console.log(`${templates.length} workout templates seeded successfully`);
     
-    // Log the created templates with their IDs for reference
-    templates.forEach(template => {
-      console.log(`Template: ${template.name}, ID: ${template._id}`);
+    // Log template details
+    templates.forEach((template, index) => {
+      console.log(`Template: (${index + 1}/${templates.length}) ${template.name}, ID: ${template._id}`);
       template.exercises.forEach(exercise => {
         console.log(`  Exercise: ${exercise.name}, ID: ${exercise.exerciseId}`);
       });
@@ -266,13 +251,23 @@ const seedDatabase = async () => {
   try {
     await connectDB();
     
-    // Run seed functions
-    await seedUsers();
-    await seedExercises();
-    await seedWorkoutTemplates();
+    // Seed users first
+    const users = await seedUsers();
+    
+    // Seed auth records with user references
+    const authRecords = await seedAuth(users);
+    
+    // Seed exercises
+    const exercises = await seedExercises();
+    
+    // Seed workout templates with user references
+    const templates = await seedWorkoutTemplates(users);
     
     console.log('Database seeded successfully!');
-    process.exit(0);
+    
+    // Disconnect from MongoDB
+    await mongoose.disconnect();
+    
   } catch (error) {
     console.error('Error seeding database:', error);
     process.exit(1);

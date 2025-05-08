@@ -73,6 +73,11 @@ const Management = () => {
         </TabPanel>
         
         <TabPanel value={activeTab} index={2}>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="textSecondary">
+              Note: New users can only be created through the registration page. This tab is for managing existing users.
+            </Typography>
+          </Box>
           <UserManager isSubTab={true} />
         </TabPanel>
       </Box>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../services/api';
-import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Container,
   Typography,
@@ -20,7 +20,10 @@ import {
   ListItemIcon,
   Tooltip,
   Collapse,
-  Divider
+  Divider,
+  Tabs,
+  Tab,
+  Chip
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -31,349 +34,57 @@ import RestoreIcon from '@mui/icons-material/Restore';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import PublicIcon from '@mui/icons-material/Public';
+import PersonIcon from '@mui/icons-material/Person';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+
+// TabPanel component to handle tab content display
+function TabPanel(props) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`template-tabpanel-${index}`}
+      aria-labelledby={`template-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ pt: 2 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
 
 const WorkoutBuilder = ({ isSubTab = false }) => {
+  const { currentUser, isAdmin: isAdminProp } = useAuth();
+  const isAdmin = () => isAdminProp();
   const [workoutTemplates, setWorkoutTemplates] = useState([]);
   const [retiredTemplates, setRetiredTemplates] = useState([]);
+  const [userTemplates, setUserTemplates] = useState([]);
+  const [globalTemplates, setGlobalTemplates] = useState([]);
   
   const [exercises, setExercises] = useState([]);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [newTemplate, setNewTemplate] = useState({
     name: '',
     description: '',
-    exercises: []
+    exercises: [],
+    isGlobal: false
   });
   const [openExerciseDialog, setOpenExerciseDialog] = useState(false);
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [exerciseSearchTerm, setExerciseSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState(0);
+  const [expandedTemplates, setExpandedTemplates] = useState([]);
+  const [expandedCategories, setExpandedCategories] = useState({});
 
-  useEffect(() => {
-    // Fetch exercises from MongoDB
-    apiService.getExercises()
-      .then(response => {
-        setExercises(response.data);
-      })
-      .catch(err => console.error('Error fetching exercises:', err));
-      
-    // Fetch active workout templates
-    apiService.getWorkoutTemplates()
-      .then(response => {
-        const data = response.data;
-        if (Array.isArray(data)) {
-          // Filter active templates and sort by name
-          const activeTemplates = data.filter(template => !template.isDeleted);
-          const sortedTemplates = [...activeTemplates].sort((a, b) => a.name.localeCompare(b.name));
-          setWorkoutTemplates(sortedTemplates);
-        } else {
-          setWorkoutTemplates([]);
-        }
-      })
-      .catch(err => console.error('Error fetching active templates:', err));
-      
-    // Fetch retired workout templates
-    apiService.getWorkoutTemplates({ includeDeleted: true })
-      .then(response => {
-        const data = response.data;
-        if (Array.isArray(data)) {
-          // Filter retired templates and sort by name
-          const retiredTemplatesArray = data.filter(template => template.isDeleted);
-          const sortedRetiredTemplates = [...retiredTemplatesArray].sort((a, b) => a.name.localeCompare(b.name));
-          setRetiredTemplates(sortedRetiredTemplates);
-        } else {
-          setRetiredTemplates([]);
-        }
-      })
-      .catch(err => console.error('Error fetching retired templates:', err));
-  }, []);
-
-  // Helper function to check if a string is a valid MongoDB ObjectId
-  const isValidObjectId = (id) => {
-    return id && /^[0-9a-fA-F]{24}$/.test(id);
-  };
-
-  const handleSaveTemplate = async () => {
-    try {
-      console.log('===== SAVE TEMPLATE DEBUG =====');
-      console.log('Current selectedExercises:', selectedExercises);
-      
-      // Create a deep copy of the selected exercises to avoid reference issues
-      const exercisesCopy = selectedExercises.map(ex => {
-        // Ensure each exercise has a valid exerciseId
-        const exerciseId = ex.exerciseId || 
-                          (isValidObjectId(ex._id) ? ex._id : null) || 
-                          `exercise-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-        
-        // Only include the necessary fields for the API
-        const exerciseCopy = {
-          exerciseId: exerciseId, // Ensure exerciseId is always set
-          name: ex.name,
-          category: ex.category,
-          sets: parseInt(ex.sets) || 3,
-          reps: parseInt(ex.reps) || 10
-        };
-        
-        // Only add _id if it's a valid MongoDB ObjectId
-        if (isValidObjectId(ex._id)) {
-          exerciseCopy._id = ex._id;
-        }
-        
-        console.log(`Saving exercise: ${exerciseCopy.name}, ID: ${exerciseCopy._id || 'none'}, exerciseId: ${exerciseCopy.exerciseId}, sets: ${exerciseCopy.sets}, reps: ${exerciseCopy.reps}`);
-        return exerciseCopy;
-      });
-
-      const templateData = {
-        name: newTemplate.name,
-        description: newTemplate.description,
-        exercises: exercisesCopy
-      };
-      console.log('Template data:', JSON.stringify(templateData, null, 2));
-      console.log('===== END SAVE TEMPLATE DEBUG =====');
-
-      if (editingTemplate) {
-        console.log('Updating existing template:', editingTemplate._id);
-        // Update existing template
-        const response = await apiService.updateWorkoutTemplate(editingTemplate._id, templateData);
-        console.log('Update response:', response);
-        const updatedTemplate = response.data;
-        
-        // Update the templates array
-        setWorkoutTemplates(workoutTemplates.map(template => 
-          template._id === updatedTemplate._id ? updatedTemplate : template
-        ));
-        
-        // Reset form
-        setEditingTemplate(null);
-      } else {
-        console.log('Creating new template');
-        // Create new template
-        const response = await apiService.createWorkoutTemplate(templateData);
-        console.log('Create response:', response);
-        const newTemplateFromServer = response.data;
-        
-        // Add to templates array
-        setWorkoutTemplates([...workoutTemplates, newTemplateFromServer]);
-      }
-      
-      // Reset form
-      setNewTemplate({ name: '', description: '', exercises: [] });
-      setSelectedExercises([]);
-      setShowCreateForm(false);
-    } catch (error) {
-      console.error('Error saving workout template:', error);
-      console.error('Error details:', error.response?.data || error.message);
-    }
-  };
-
-  const handleEditTemplate = (template) => {
-    console.log('===== EDIT TEMPLATE DEBUG =====');
-    console.log('Editing template:', template);
-    
-    setEditingTemplate(template);
-    setNewTemplate({
-      name: template.name,
-      description: template.description,
-    });
-    
-    // Create deep copies of the exercises to prevent reference issues
-    const exercisesCopy = template.exercises.map((ex, index) => {
-      // Generate a temporary ID for new exercises or those without valid ObjectIds
-      const tempId = `temp-exercise-${index}-${Date.now()}`;
-      
-      // Determine the best ID to use
-      const exerciseId = ex.exerciseId || 
-                        (isValidObjectId(ex._id) ? ex._id : null) || 
-                        tempId;
-      
-      // Make sure we preserve the original _id for proper updating if it's valid
-      const exerciseCopy = {
-        name: ex.name,
-        category: ex.category,
-        sets: parseInt(ex.sets) || 3,
-        reps: parseInt(ex.reps) || 10,
-        exerciseId: exerciseId,
-        _id: tempId // Always use a temporary ID for client-side tracking
-      };
-      
-      console.log(`Copied exercise: ${exerciseCopy.name}, temp ID: ${exerciseCopy._id}, exerciseId: ${exerciseCopy.exerciseId}, sets: ${exerciseCopy.sets}, reps: ${exerciseCopy.reps}`);
-      return exerciseCopy;
-    });
-    
-    console.log('Deep copied exercises:', exercisesCopy);
-    console.log('===== END EDIT TEMPLATE DEBUG =====');
-    
-    setSelectedExercises(exercisesCopy);
-    setShowCreateForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleDeleteTemplate = async (templateId) => {
-    try {
-      await apiService.retireWorkoutTemplate(templateId);
-      
-      // Update local state
-      const template = workoutTemplates.find(t => t._id === templateId);
-      if (template) {
-        // Remove from active templates
-        setWorkoutTemplates(workoutTemplates.filter(t => t._id !== templateId));
-        
-        // Add to retired templates with isDeleted flag
-        const retiredTemplate = { ...template, isDeleted: true, deletedAt: new Date() };
-        setRetiredTemplates([...retiredTemplates, retiredTemplate]);
-      }
-    } catch (error) {
-      console.error('Error retiring workout template:', error);
-    }
-  };
-
-  const handleRetireTemplate = async (templateId) => {
-    try {
-      await apiService.retireWorkoutTemplate(templateId);
-      
-      // Update local state
-      const template = workoutTemplates.find(t => t._id === templateId);
-      if (template) {
-        // Remove from active templates
-        setWorkoutTemplates(workoutTemplates.filter(t => t._id !== templateId));
-        
-        // Add to retired templates with isDeleted flag
-        const retiredTemplate = { ...template, isDeleted: true, deletedAt: new Date() };
-        setRetiredTemplates([...retiredTemplates, retiredTemplate]);
-      }
-    } catch (error) {
-      console.error('Error retiring workout template:', error);
-    }
-  };
-
-  const handleRestoreTemplate = async (templateId) => {
-    try {
-      await apiService.restoreWorkoutTemplate(templateId);
-      
-      // Update local state
-      const template = retiredTemplates.find(t => t._id === templateId);
-      if (template) {
-        // Remove from retired templates
-        setRetiredTemplates(retiredTemplates.filter(t => t._id !== templateId));
-        
-        // Add to active templates without isDeleted flag
-        const restoredTemplate = { ...template, isDeleted: false, deletedAt: null };
-        setWorkoutTemplates([...workoutTemplates, restoredTemplate]);
-      }
-    } catch (error) {
-      console.error('Error restoring workout template:', error);
-    }
-  };
-
-  const handleHardDeleteTemplate = async (templateId) => {
-    if (window.confirm('Are you sure you want to permanently delete this template? This action cannot be undone.')) {
-      try {
-        await apiService.hardDeleteWorkoutTemplate(templateId);
-        
-        // Update local state
-        setRetiredTemplates(retiredTemplates.filter(t => t._id !== templateId));
-      } catch (error) {
-        console.error('Error permanently deleting workout template:', error);
-      }
-    }
-  };
-
-  const handleExerciseToggle = (exercise) => {
-    const currentIndex = selectedExercises.findIndex(e => e._id === exercise._id);
-    const newSelectedExercises = [...selectedExercises];
-
-    if (currentIndex === -1) {
-      newSelectedExercises.push({
-        ...exercise,
-        sets: 3, // default values
-        reps: exercise.defaultReps || 10
-      });
-    } else {
-      newSelectedExercises.splice(currentIndex, 1);
-    }
-
-    setSelectedExercises(newSelectedExercises);
-  };
-
-  const updateExerciseParams = (exerciseId, field, value) => {
-    console.log(`===== EXERCISE UPDATE DEBUG =====`);
-    console.log(`Updating exercise ${exerciseId}, field: ${field}, value: ${value}`);
-    console.log(`Current selectedExercises:`, selectedExercises);
-    
-    // First, check if the exerciseId exists in any of the exercises
-    const exerciseExists = selectedExercises.some(ex => ex._id === exerciseId);
-    console.log(`Exercise with ID ${exerciseId} exists: ${exerciseExists}`);
-    
-    if (!exerciseExists) {
-      console.error(`Cannot find exercise with ID ${exerciseId} in selectedExercises`);
-      return; // Don't update if we can't find the exercise
-    }
-    
-    // Create a completely new array with completely new objects
-    const newSelectedExercises = selectedExercises.map(ex => {
-      // Create a completely new object for each exercise
-      const newEx = { ...ex };
-      
-      // Only update the specific exercise that matches the ID
-      if (newEx._id === exerciseId) {
-        console.log(`Found matching exercise: ${newEx.name}, updating ${field} from ${newEx[field]} to ${value}`);
-        newEx[field] = parseInt(value) || 0;
-        console.log(`Updated exercise object:`, newEx);
-      } else {
-        console.log(`Skipping exercise: ${newEx.name} (ID: ${newEx._id})`);
-      }
-      
-      return newEx;
-    });
-    
-    console.log(`New selectedExercises array:`, newSelectedExercises);
-    
-    // Debug: Check if multiple exercises were updated
-    let updatedCount = 0;
-    selectedExercises.forEach((ex, index) => {
-      if (ex[field] !== newSelectedExercises[index][field]) {
-        console.log(`Exercise ${ex.name} (ID: ${ex._id}) was updated from ${ex[field]} to ${newSelectedExercises[index][field]}`);
-        updatedCount++;
-      }
-    });
-    
-    console.log(`Updated ${updatedCount} exercises`);
-    console.log(`===== END EXERCISE UPDATE DEBUG =====`);
-    
-    // Set the new state with the completely new array
-    setSelectedExercises(newSelectedExercises);
-  };
-  
-  // Function to move an exercise up in the list
-  const moveExerciseUp = (index) => {
-    if (index === 0) return; // Already at the top
-    
-    const newExercises = [...selectedExercises];
-    const temp = newExercises[index];
-    newExercises[index] = newExercises[index - 1];
-    newExercises[index - 1] = temp;
-    
-    setSelectedExercises(newExercises);
-  };
-  
-  // Function to move an exercise down in the list
-  const moveExerciseDown = (index) => {
-    if (index === selectedExercises.length - 1) return; // Already at the bottom
-    
-    const newExercises = [...selectedExercises];
-    const temp = newExercises[index];
-    newExercises[index] = newExercises[index + 1];
-    newExercises[index + 1] = temp;
-    
-    setSelectedExercises(newExercises);
-  };
-  
-  // Function to remove an exercise from the list
-  const removeExercise = (index) => {
-    const newExercises = [...selectedExercises];
-    newExercises.splice(index, 1);
-    setSelectedExercises(newExercises);
-  };
-
+  // Categories for exercises
   const categories = [
     'Arms',
     'Back',
@@ -387,6 +98,7 @@ const WorkoutBuilder = ({ isSubTab = false }) => {
     'Other'
   ];
 
+  // Category color mapping for visual distinction
   const categoryColors = {
     'Arms': '#f57c00',          // Orange
     'Back': '#2e7d32',          // Green
@@ -400,489 +112,1101 @@ const WorkoutBuilder = ({ isSubTab = false }) => {
     'Other': '#616161'          // Grey
   };
 
-  const [expanded, setExpanded] = useState(() => {
-    // Initialize all categories to be expanded by default
-    const initialState = {};
-    categories.forEach(category => {
-      initialState[category] = true;
-    });
-    return initialState;
-  });
+  useEffect(() => {
+    // Fetch exercises for the exercise selection dialog
+    const fetchExercises = async () => {
+      try {
+        const response = await apiService.getExercises();
+        if (Array.isArray(response)) {
+          setExercises(response);
+          
+          // Initialize all categories as expanded
+          const initialExpandedState = categories.reduce((acc, category) => {
+            acc[category] = true;
+            return acc;
+          }, {});
+          setExpandedCategories(initialExpandedState);
+        } else if (response && Array.isArray(response.data)) {
+          setExercises(response.data);
+          
+          // Initialize all categories as expanded
+          const initialExpandedState = categories.reduce((acc, category) => {
+            acc[category] = true;
+            return acc;
+          }, {});
+          setExpandedCategories(initialExpandedState);
+        }
+      } catch (error) {
+        console.error('Error fetching exercises:', error);
+      }
+    };
 
-  const handleToggle = (category) => {
-    setExpanded((prevExpanded) => ({ ...prevExpanded, [category]: !prevExpanded[category] }));
+    fetchExercises();
+  }, []);
+
+  useEffect(() => {
+    // Fetch workout templates
+    const fetchWorkoutTemplates = async () => {
+      try {
+        // Fetch all templates (both user-specific and global)
+        const response = await apiService.getWorkoutTemplates({ includeDeleted: true });
+        
+        if (Array.isArray(response)) {
+          // Filter active and retired templates
+          const active = response.filter(template => !template.isDeleted);
+          const retired = response.filter(template => template.isDeleted);
+          
+          // Filter user-specific and global templates
+          const userSpecific = active.filter(template => template.userId === (currentUser?.id || null));
+          const global = active.filter(template => template.userId === null);
+          
+          setWorkoutTemplates(active);
+          setRetiredTemplates(retired);
+          setUserTemplates(userSpecific);
+          setGlobalTemplates(global);
+        } else if (response && Array.isArray(response.data)) {
+          // Filter active and retired templates
+          const active = response.data.filter(template => !template.isDeleted);
+          const retired = response.data.filter(template => template.isDeleted);
+          
+          // Filter user-specific and global templates
+          const userSpecific = active.filter(template => template.userId === (currentUser?.id || null));
+          const global = active.filter(template => template.userId === null);
+          
+          setWorkoutTemplates(active);
+          setRetiredTemplates(retired);
+          setUserTemplates(userSpecific);
+          setGlobalTemplates(global);
+        }
+      } catch (error) {
+        console.error('Error fetching workout templates:', error);
+      }
+    };
+
+    fetchWorkoutTemplates();
+  }, [currentUser]);
+
+  // Helper function to check if a string is a valid MongoDB ObjectId
+  const isValidObjectId = (id) => {
+    return id && /^[0-9a-fA-F]{24}$/.test(id);
+  };
+
+  // Handle creating a new template
+  const handleCreateTemplate = async () => {
+    try {
+      const response = await apiService.createWorkoutTemplate(newTemplate);
+      
+      // Update the appropriate template list based on whether it's global or user-specific
+      if (newTemplate.isGlobal && isAdmin()) {
+        setGlobalTemplates([response, ...globalTemplates]);
+      } else {
+        setUserTemplates([response, ...userTemplates]);
+      }
+      
+      // Reset form
+      setNewTemplate({
+        name: '',
+        description: '',
+        exercises: [],
+        isGlobal: false
+      });
+      setShowCreateForm(false);
+    } catch (error) {
+      console.error('Error creating template:', error);
+    }
+  };
+
+  // Handle editing a template
+  const handleEditTemplate = (template) => {
+    // Check if user can edit this template
+    const canEdit = template.userId === currentUser.id || (template.userId === null && isAdmin());
+    
+    if (!canEdit) {
+      alert('You do not have permission to edit this template.');
+      return;
+    }
+    
+    setEditingTemplate({
+      ...template,
+      isGlobal: template.userId === null
+    });
+  };
+
+  // Handle updating a template
+  const handleUpdateTemplate = async () => {
+    try {
+      // Debug info
+      console.log('Current user:', currentUser);
+      console.log('Is admin function result:', isAdmin());
+      console.log('Template being updated:', editingTemplate);
+      
+      // Check if converting between global and user-specific
+      const wasGlobal = editingTemplate._id && 
+        [...globalTemplates, ...userTemplates].find(t => t._id === editingTemplate._id)?.userId === null;
+      
+      // If converting to global, ensure user is admin
+      if (!wasGlobal && editingTemplate.isGlobal && !isAdmin()) {
+        alert('Only admin users can create global templates');
+        return;
+      }
+      
+      // If template was global but user is not admin, prevent changes to global status
+      if (wasGlobal && !isAdmin()) {
+        // Ensure we're not trying to change global status
+        editingTemplate.isGlobal = true;
+      }
+      
+      // Create a copy of the template with only the fields we want to send
+      const templateToUpdate = {
+        _id: editingTemplate._id,
+        name: editingTemplate.name,
+        description: editingTemplate.description,
+        exercises: editingTemplate.exercises,
+        isGlobal: editingTemplate.isGlobal
+      };
+      
+      console.log('Sending template data to server:', templateToUpdate);
+      
+      const response = await apiService.updateWorkoutTemplate(templateToUpdate._id, templateToUpdate);
+      
+      // Update the appropriate template lists
+      const updatedTemplate = response;
+      
+      // If the template was converted to global or from global
+      if (updatedTemplate.userId === null) {
+        // Template is now global
+        setGlobalTemplates(globalTemplates.map(t => 
+          t._id === updatedTemplate._id ? updatedTemplate : t
+        ));
+        setUserTemplates(userTemplates.filter(t => t._id !== updatedTemplate._id));
+      } else {
+        // Template is now user-specific
+        setUserTemplates(userTemplates.map(t => 
+          t._id === updatedTemplate._id ? updatedTemplate : t
+        ));
+        setGlobalTemplates(globalTemplates.filter(t => t._id !== updatedTemplate._id));
+      }
+      
+      setEditingTemplate(null);
+    } catch (error) {
+      console.error('Error updating template:', error);
+      alert(`Error updating template: ${error.message || 'Unknown error'}`);
+    }
+  };
+
+  // Handle deleting a template
+  const handleDeleteTemplate = async (templateId) => {
+    try {
+      const templateToDelete = [...userTemplates, ...globalTemplates].find(t => t._id === templateId);
+      
+      // Check if user can delete this template
+      const canDelete = templateToDelete.userId === currentUser.id || (templateToDelete.userId === null && isAdmin());
+      
+      if (!canDelete) {
+        alert('You do not have permission to delete this template.');
+        return;
+      }
+      
+      await apiService.deleteWorkoutTemplate(templateId);
+      
+      // Update template lists
+      if (templateToDelete.userId === null) {
+        // It's a global template
+        const updatedGlobalTemplates = globalTemplates.filter(t => t._id !== templateId);
+        setGlobalTemplates(updatedGlobalTemplates);
+      } else {
+        // It's a user template
+        const updatedUserTemplates = userTemplates.filter(t => t._id !== templateId);
+        setUserTemplates(updatedUserTemplates);
+      }
+      
+      // Add to retired templates
+      setRetiredTemplates([
+        { ...templateToDelete, isDeleted: true },
+        ...retiredTemplates
+      ]);
+    } catch (error) {
+      console.error('Error deleting template:', error);
+    }
+  };
+
+  // Handle permanently deleting a template
+  const handlePermanentDelete = async (templateId) => {
+    try {
+      const templateToDelete = retiredTemplates.find(t => t._id === templateId);
+      
+      // Check if user can permanently delete this template
+      const canDelete = templateToDelete.userId === currentUser.id || (templateToDelete.userId === null && isAdmin());
+      
+      if (!canDelete) {
+        alert('You do not have permission to permanently delete this template.');
+        return;
+      }
+      
+      await apiService.permanentlyDeleteWorkoutTemplate(templateId);
+      
+      // Update retired templates list
+      const updatedRetiredTemplates = retiredTemplates.filter(t => t._id !== templateId);
+      setRetiredTemplates(updatedRetiredTemplates);
+    } catch (error) {
+      console.error('Error permanently deleting template:', error);
+    }
+  };
+
+  // Handle restoring a template
+  const handleRestoreTemplate = async (templateId) => {
+    try {
+      const templateToRestore = retiredTemplates.find(t => t._id === templateId);
+      
+      // Check if user can restore this template
+      const canRestore = templateToRestore.userId === currentUser.id || (templateToRestore.userId === null && isAdmin());
+      
+      if (!canRestore) {
+        alert('You do not have permission to restore this template.');
+        return;
+      }
+      
+      const response = await apiService.restoreWorkoutTemplate(templateId);
+      
+      // Update template lists
+      const restoredTemplate = response;
+      
+      // Remove from retired templates
+      const updatedRetiredTemplates = retiredTemplates.filter(t => t._id !== templateId);
+      setRetiredTemplates(updatedRetiredTemplates);
+      
+      // Add to appropriate active templates list
+      if (restoredTemplate.userId === null) {
+        // It's a global template
+        setGlobalTemplates([restoredTemplate, ...globalTemplates]);
+      } else {
+        // It's a user template
+        setUserTemplates([restoredTemplate, ...userTemplates]);
+      }
+    } catch (error) {
+      console.error('Error restoring template:', error);
+    }
+  };
+
+  // Function to render a template item
+  const renderTemplateItem = (template) => {
+    const isExpanded = expandedTemplates.includes(template._id);
+    const isUserTemplate = template.userId === currentUser.id;
+    const isGlobalTemplate = template.userId === null;
+    const canEdit = isUserTemplate || (isGlobalTemplate && isAdmin());
+    
+    return (
+      <Paper 
+        key={template._id} 
+        elevation={2} 
+        sx={{ 
+          mb: 2, 
+          p: 2,
+          border: isGlobalTemplate ? '1px solid #1976d2' : 'none'
+        }}
+      >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Box>
+            <Typography variant="h6" component="div">
+              {template.name}
+              {isGlobalTemplate && (
+                <Chip 
+                  icon={<PublicIcon />} 
+                  label="Global" 
+                  size="small" 
+                  color="primary" 
+                  sx={{ ml: 1 }}
+                />
+              )}
+              {isUserTemplate && (
+                <Chip 
+                  icon={<PersonIcon />} 
+                  label="Personal" 
+                  size="small" 
+                  color="secondary" 
+                  sx={{ ml: 1 }}
+                />
+              )}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {template.description}
+            </Typography>
+          </Box>
+          <Box>
+            <Tooltip title="Start Workout">
+              <IconButton 
+                color="primary" 
+                onClick={() => handleStartWorkout(template)}
+              >
+                <PlayArrowIcon />
+              </IconButton>
+            </Tooltip>
+            {canEdit && (
+              <>
+                <Tooltip title="Edit">
+                  <IconButton 
+                    color="primary" 
+                    onClick={() => handleEditTemplate(template)}
+                  >
+                    <EditIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Delete">
+                  <IconButton 
+                    color="error" 
+                    onClick={() => handleDeleteTemplate(template._id)}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
+            <Tooltip title={isExpanded ? "Collapse" : "Expand"}>
+              <IconButton onClick={() => toggleTemplateExpansion(template._id)}>
+                {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+        
+        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+          <Divider sx={{ my: 1 }} />
+          <Typography variant="subtitle1" sx={{ mt: 2 }}>
+            Exercises:
+          </Typography>
+          <List dense>
+            {template.exercises.map((exercise, index) => (
+              <ListItem key={index}>
+                <ListItemText
+                  primary={exercise.name}
+                  secondary={`${exercise.sets} sets × ${exercise.reps} reps`}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Collapse>
+      </Paper>
+    );
+  };
+
+  // Template edit dialog
+  const renderTemplateEditDialog = () => {
+    if (!editingTemplate) return null;
+    
+    return (
+      <Dialog open={!!editingTemplate} onClose={() => setEditingTemplate(null)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Workout Template</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            margin="normal"
+            label="Template Name"
+            value={editingTemplate.name}
+            onChange={(e) => setEditingTemplate({ ...editingTemplate, name: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            margin="normal"
+            label="Description"
+            value={editingTemplate.description}
+            onChange={(e) => setEditingTemplate({ ...editingTemplate, description: e.target.value })}
+          />
+          
+          {isAdmin() && (
+            <Box sx={{ mt: 2, mb: 2 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Template Visibility
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Checkbox
+                  checked={editingTemplate.isGlobal}
+                  onChange={(e) => setEditingTemplate({ 
+                    ...editingTemplate, 
+                    isGlobal: e.target.checked 
+                  })}
+                />
+                <Typography>Make this template global (available to all users)</Typography>
+              </Box>
+            </Box>
+          )}
+          
+          <Typography variant="subtitle1" sx={{ mt: 2 }}>
+            Exercises
+          </Typography>
+          
+          <List>
+            {editingTemplate.exercises.map((exercise, index) => (
+              <ListItem
+                key={index}
+                secondaryAction={
+                  <Box>
+                    <IconButton
+                      edge="end"
+                      aria-label="move up"
+                      disabled={index === 0}
+                      onClick={() => handleMoveExercise(index, index - 1, true)}
+                    >
+                      <ArrowUpwardIcon />
+                    </IconButton>
+                    <IconButton
+                      edge="end"
+                      aria-label="move down"
+                      disabled={index === editingTemplate.exercises.length - 1}
+                      onClick={() => handleMoveExercise(index, index + 1, true)}
+                    >
+                      <ArrowDownwardIcon />
+                    </IconButton>
+                    <IconButton
+                      edge="end"
+                      aria-label="delete"
+                      onClick={() => handleRemoveExercise(index, true)}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                }
+              >
+                <Box sx={{ width: '100%' }}>
+                  <Typography variant="subtitle1">{exercise.name}</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                    <TextField
+                      label="Sets"
+                      type="number"
+                      size="small"
+                      value={exercise.sets}
+                      onChange={(e) => {
+                        const newExercises = [...editingTemplate.exercises];
+                        newExercises[index] = {
+                          ...newExercises[index],
+                          sets: parseInt(e.target.value) || 1
+                        };
+                        setEditingTemplate({
+                          ...editingTemplate,
+                          exercises: newExercises
+                        });
+                      }}
+                      sx={{ width: '80px', mr: 2 }}
+                      InputProps={{ inputProps: { min: 1, max: 10 } }}
+                    />
+                    <TextField
+                      label="Reps"
+                      type="number"
+                      size="small"
+                      value={exercise.reps}
+                      onChange={(e) => {
+                        const newExercises = [...editingTemplate.exercises];
+                        newExercises[index] = {
+                          ...newExercises[index],
+                          reps: parseInt(e.target.value) || 1
+                        };
+                        setEditingTemplate({
+                          ...editingTemplate,
+                          exercises: newExercises
+                        });
+                      }}
+                      sx={{ width: '80px' }}
+                      InputProps={{ inputProps: { min: 1, max: 30 } }}
+                    />
+                  </Box>
+                </Box>
+              </ListItem>
+            ))}
+          </List>
+          
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setSelectedExercises([]);
+              setOpenExerciseDialog(true);
+            }}
+            sx={{ mt: 2 }}
+          >
+            Add Exercises
+          </Button>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditingTemplate(null)}>Cancel</Button>
+          <Button onClick={handleUpdateTemplate} variant="contained" color="primary">
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  };
+
+  // Template create form
+  const renderCreateForm = () => {
+    if (!showCreateForm) return null;
+    
+    return (
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Create New Workout Template
+        </Typography>
+        <TextField
+          fullWidth
+          margin="normal"
+          label="Template Name"
+          value={newTemplate.name}
+          onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          label="Description"
+          value={newTemplate.description}
+          onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
+        />
+        
+        {isAdmin() && (
+          <Box sx={{ mt: 2, mb: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Template Visibility
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Checkbox
+                checked={newTemplate.isGlobal}
+                onChange={(e) => setNewTemplate({ 
+                  ...newTemplate, 
+                  isGlobal: e.target.checked 
+                })}
+              />
+              <Typography>Make this template global (available to all users)</Typography>
+            </Box>
+          </Box>
+        )}
+        
+        <Typography variant="subtitle1" sx={{ mt: 2 }}>
+          Exercises
+        </Typography>
+        
+        <List>
+          {newTemplate.exercises.map((exercise, index) => (
+            <ListItem
+              key={index}
+              secondaryAction={
+                <Box>
+                  <IconButton
+                    edge="end"
+                    aria-label="move up"
+                    disabled={index === 0}
+                    onClick={() => handleMoveExercise(index, index - 1)}
+                  >
+                    <ArrowUpwardIcon />
+                  </IconButton>
+                  <IconButton
+                    edge="end"
+                    aria-label="move down"
+                    disabled={index === newTemplate.exercises.length - 1}
+                    onClick={() => handleMoveExercise(index, index + 1)}
+                  >
+                    <ArrowDownwardIcon />
+                  </IconButton>
+                  <IconButton
+                    edge="end"
+                    aria-label="delete"
+                    onClick={() => handleRemoveExercise(index)}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Box>
+              }
+            >
+              <Box sx={{ width: '100%' }}>
+                <Typography variant="subtitle1">{exercise.name}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                  <TextField
+                    label="Sets"
+                    type="number"
+                    size="small"
+                    value={exercise.sets}
+                    onChange={(e) => {
+                      const newExercises = [...newTemplate.exercises];
+                      newExercises[index] = {
+                        ...newExercises[index],
+                        sets: parseInt(e.target.value) || 1
+                      };
+                      setNewTemplate({
+                        ...newTemplate,
+                        exercises: newExercises
+                      });
+                    }}
+                    sx={{ width: '80px', mr: 2 }}
+                    InputProps={{ inputProps: { min: 1, max: 10 } }}
+                  />
+                  <TextField
+                    label="Reps"
+                    type="number"
+                    size="small"
+                    value={exercise.reps}
+                    onChange={(e) => {
+                      const newExercises = [...newTemplate.exercises];
+                      newExercises[index] = {
+                        ...newExercises[index],
+                        reps: parseInt(e.target.value) || 1
+                      };
+                      setNewTemplate({
+                        ...newTemplate,
+                        exercises: newExercises
+                      });
+                    }}
+                    sx={{ width: '80px' }}
+                    InputProps={{ inputProps: { min: 1, max: 30 } }}
+                  />
+                </Box>
+              </Box>
+            </ListItem>
+          ))}
+        </List>
+        
+        <Button
+          variant="outlined"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setSelectedExercises([]);
+            setOpenExerciseDialog(true);
+          }}
+          sx={{ mt: 2 }}
+        >
+          Add Exercises
+        </Button>
+        
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button 
+            onClick={() => {
+              setShowCreateForm(false);
+              setNewTemplate({
+                name: '',
+                description: '',
+                exercises: [],
+                isGlobal: false
+              });
+            }}
+            sx={{ mr: 1 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleCreateTemplate}
+            disabled={!newTemplate.name || newTemplate.exercises.length === 0}
+          >
+            Create Template
+          </Button>
+        </Box>
+      </Paper>
+    );
+  };
+
+  // Handle tab change
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  // Handle starting a workout with a template
+  const handleStartWorkout = (template) => {
+    // Navigate to the active workout page with the selected template
+    window.location.href = `/active?template=${template._id}`;
+  };
+
+  // Toggle template expansion
+  const toggleTemplateExpansion = (templateId) => {
+    setExpandedTemplates(prev => {
+      if (prev.includes(templateId)) {
+        return prev.filter(id => id !== templateId);
+      } else {
+        return [...prev, templateId];
+      }
+    });
+  };
+
+  // Toggle category expansion
+  const toggleCategoryExpansion = (category) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
+  // Handle moving an exercise in the list
+  const handleMoveExercise = (fromIndex, toIndex, isEditing = false) => {
+    if (isEditing) {
+      // Move exercise in the editing template
+      const newExercises = [...editingTemplate.exercises];
+      const [movedExercise] = newExercises.splice(fromIndex, 1);
+      newExercises.splice(toIndex, 0, movedExercise);
+      setEditingTemplate({
+        ...editingTemplate,
+        exercises: newExercises
+      });
+    } else {
+      // Move exercise in the new template
+      const newExercises = [...newTemplate.exercises];
+      const [movedExercise] = newExercises.splice(fromIndex, 1);
+      newExercises.splice(toIndex, 0, movedExercise);
+      setNewTemplate({
+        ...newTemplate,
+        exercises: newExercises
+      });
+    }
+  };
+
+  // Handle removing an exercise from the list
+  const handleRemoveExercise = (index, isEditing = false) => {
+    if (isEditing) {
+      // Remove exercise from the editing template
+      const newExercises = [...editingTemplate.exercises];
+      newExercises.splice(index, 1);
+      setEditingTemplate({
+        ...editingTemplate,
+        exercises: newExercises
+      });
+    } else {
+      // Remove exercise from the new template
+      const newExercises = [...newTemplate.exercises];
+      newExercises.splice(index, 1);
+      setNewTemplate({
+        ...newTemplate,
+        exercises: newExercises
+      });
+    }
   };
 
   return (
-    <Container maxWidth="md" disableGutters={isSubTab}>
+    <Container maxWidth="md" sx={{ mt: isSubTab ? 0 : 4, mb: 4 }}>
       {!isSubTab && (
-        <Typography variant="h4" sx={{ my: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
           Workout Builder
         </Typography>
       )}
 
-      <Box display="flex" justifyContent="flex-end" mb={3}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Button
           variant="contained"
           color="primary"
           startIcon={<AddIcon />}
           onClick={() => setShowCreateForm(true)}
         >
-          Create Workout
+          Create New Template
         </Button>
+        
+        <TextField
+          label="Search Templates"
+          variant="outlined"
+          size="small"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          sx={{ width: '250px' }}
+        />
       </Box>
 
-      {showCreateForm && (
-        <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
-          <Typography variant="h6" gutterBottom>
-            {editingTemplate ? 'Edit Workout Template' : 'Create New Workout Template'}
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="Workout Name"
-              value={newTemplate.name}
-              onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
-              required
-            />
-            <TextField
-              label="Description"
-              value={newTemplate.description}
-              onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
-              multiline
-              rows={2}
-            />
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => setOpenExerciseDialog(true)}
+      {/* Tabs for User and Global Templates */}
+      <Box sx={{ width: '100%', mb: 3 }}>
+        <Tabs 
+          value={activeTab} 
+          onChange={handleTabChange} 
+          aria-label="template tabs"
+          variant="fullWidth"
+        >
+          <Tab 
+            label="My Templates" 
+            icon={<PersonIcon />} 
+            iconPosition="start"
+          />
+          <Tab 
+            label="Global Templates" 
+            icon={<PublicIcon />} 
+            iconPosition="start"
+          />
+          <Tab 
+            label="Retired Templates" 
+            icon={<DeleteIcon />} 
+            iconPosition="start"
+          />
+        </Tabs>
+      </Box>
+
+      {/* User Templates Tab */}
+      <TabPanel value={activeTab} index={0}>
+        {userTemplates.length === 0 ? (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body1" color="textSecondary">
+              You haven't created any personal workout templates yet.
+            </Typography>
+            <Button 
+              variant="outlined" 
+              color="primary" 
+              sx={{ mt: 2 }}
+              onClick={() => setShowCreateForm(true)}
             >
-              Add Exercises
+              Create Your First Template
             </Button>
-            <List>
-              {selectedExercises.map((exercise) => (
-                <ListItem key={exercise._id} sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', mr: 1 }}>
-                    <Tooltip title="Move Up">
-                      <span>
-                        <IconButton 
-                          size="small" 
-                          onClick={() => moveExerciseUp(selectedExercises.indexOf(exercise))}
-                          disabled={selectedExercises.indexOf(exercise) === 0}
-                        >
-                          <ArrowUpwardIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Tooltip title="Move Down">
-                      <span>
-                        <IconButton 
-                          size="small" 
-                          onClick={() => moveExerciseDown(selectedExercises.indexOf(exercise))}
-                          disabled={selectedExercises.indexOf(exercise) === selectedExercises.length - 1}
-                        >
-                          <ArrowDownwardIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </Box>
-                  <ListItemText 
-                    primary={exercise.name} 
-                    secondary={
-                      <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
-                        <TextField
-                          label="Sets"
-                          type="number"
-                          size="small"
-                          value={exercise.sets}
-                          onChange={(e) => updateExerciseParams(exercise._id, 'sets', e.target.value)}
-                          sx={{ width: 80 }}
-                          InputProps={{ inputProps: { min: 1 } }}
-                        />
-                        <TextField
-                          label="Reps"
-                          type="number"
-                          size="small"
-                          value={exercise.reps}
-                          onChange={(e) => updateExerciseParams(exercise._id, 'reps', e.target.value)}
-                          sx={{ width: 80 }}
-                          InputProps={{ inputProps: { min: 1 } }}
-                        />
-                      </Box>
-                    }
-                  />
-                  <Tooltip title="Remove Exercise">
-                    <IconButton 
-                      edge="end" 
-                      aria-label="delete" 
-                      onClick={() => removeExercise(selectedExercises.indexOf(exercise))}
-                      color="error"
-                      size="small"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Tooltip>
-                </ListItem>
-              ))}
-            </List>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSaveTemplate}
-                disabled={!newTemplate.name || selectedExercises.length === 0}
-              >
-                {editingTemplate ? 'Update Template' : 'Save Template'}
-              </Button>
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={() => {
-                  setShowCreateForm(false);
-                  setEditingTemplate(null);
-                  setNewTemplate({ name: '', description: '', exercises: [] });
-                  setSelectedExercises([]);
-                }}
-              >
-                Cancel
-              </Button>
-            </Box>
+          </Paper>
+        ) : (
+          <Box>
+            {userTemplates.filter(template => 
+              template.name.toLowerCase().includes(searchTerm.toLowerCase())
+            ).map(template => renderTemplateItem(template))}
           </Box>
-        </Paper>
-      )}
+        )}
+      </TabPanel>
 
-      <Paper elevation={2} sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Saved Workout Templates
-        </Typography>
-        
-        {/* Active Templates Section */}
-        <Paper 
-          elevation={3} 
-          sx={{ 
-            mb: 3,
-            borderRadius: '8px',
-            overflow: 'hidden',
-            border: '1px solid rgba(25, 118, 210, 0.2)' // Light blue border
-          }}
-        >
-          <Box 
-            sx={{ 
-              p: 2, 
-              bgcolor: 'primary.main', 
-              color: 'white',
-              borderBottom: '1px solid rgba(25, 118, 210, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                Active Templates
-              </Typography>
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  ml: 2, 
-                  bgcolor: 'rgba(255, 255, 255, 0.2)', 
-                  px: 1.5, 
-                  py: 0.5, 
-                  borderRadius: '12px',
-                  fontWeight: 'bold'
-                }}
-              >
-                {workoutTemplates.length}
-              </Typography>
-            </Box>
+      {/* Global Templates Tab */}
+      <TabPanel value={activeTab} index={1}>
+        {globalTemplates.length === 0 ? (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body1" color="textSecondary">
+              No global workout templates are available.
+            </Typography>
+          </Paper>
+        ) : (
+          <Box>
+            {globalTemplates.filter(template => 
+              template.name.toLowerCase().includes(searchTerm.toLowerCase())
+            ).map(template => renderTemplateItem(template))}
           </Box>
-          <Box sx={{ p: 2 }}>
-            <List>
-              {Array.isArray(workoutTemplates) && workoutTemplates.length > 0 ? 
-                workoutTemplates.map((template) => (
-                  <ListItem 
-                    key={template._id || template.id} 
-                    divider
-                    sx={{
-                      py: 1.5,
-                      transition: 'background-color 0.2s',
-                      '&:hover': {
-                        bgcolor: 'rgba(0, 0, 0, 0.04)'
-                      }
-                    }}
-                  >
-                    <ListItemText
-                      primary={
-                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                          {template.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <Box sx={{ mt: 0.5 }}>
-                          {template.description && (
-                            <Typography variant="body2" color="text.secondary">
-                              {template.description}
-                            </Typography>
-                          )}
-                          <Typography 
-                            component="span" 
-                            variant="body2" 
-                            sx={{ 
-                              mt: 0.5,
-                              display: 'inline-block',
-                              bgcolor: 'rgba(0, 0, 0, 0.08)', 
-                              px: 1, 
-                              py: 0.5, 
-                              borderRadius: '4px',
-                              fontSize: '0.75rem'
-                            }}
-                          >
-                            {`${template.exercises ? template.exercises.length : 0} exercises`}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <IconButton 
-                        color="primary" 
-                        onClick={() => handleEditTemplate(template)}
-                        size="small"
-                        sx={{ color: 'primary.main' }}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton 
-                        color="error" 
-                        onClick={() => handleDeleteTemplate(template._id || template.id)}
-                        size="small"
-                        sx={{ color: 'error.main' }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Box>
-                  </ListItem>
-                ))
-              : (
-                <ListItem>
-                  <ListItemText primary="No active workout templates found" />
-                </ListItem>
-              )}
-            </List>
-          </Box>
-        </Paper>
-        
-        {/* Retired Templates Section */}
-        <Paper 
-          elevation={3} 
-          sx={{ 
-            mb: 3, 
-            borderRadius: '8px',
-            overflow: 'hidden',
-            border: '1px solid rgba(211, 47, 47, 0.2)' // Light red border
-          }}
-        >
-          <Box 
-            sx={{ 
-              p: 2, 
-              bgcolor: 'error.main', 
-              color: 'white',
-              borderBottom: '1px solid rgba(211, 47, 47, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                Retired Templates
-              </Typography>
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  ml: 2, 
-                  bgcolor: 'rgba(255, 255, 255, 0.2)', 
-                  px: 1.5, 
-                  py: 0.5, 
-                  borderRadius: '12px',
-                  fontWeight: 'bold'
-                }}
-              >
-                {retiredTemplates.length}
-              </Typography>
-            </Box>
-          </Box>
-          <Box sx={{ p: 2 }}>
-            <List>
-              {Array.isArray(retiredTemplates) && retiredTemplates.length > 0 ? 
-                retiredTemplates.map((template) => (
-                  <ListItem 
-                    key={template._id || template.id} 
-                    divider
-                    sx={{
-                      py: 1.5,
-                      transition: 'background-color 0.2s',
-                      '&:hover': {
-                        bgcolor: 'rgba(211, 47, 47, 0.08)' // Slightly darker on hover
-                      },
-                      bgcolor: 'rgba(211, 47, 47, 0.05)' // Light red background
-                    }}
-                  >
-                    <ListItemText
-                      primary={
-                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                          {template.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <Box sx={{ mt: 0.5 }}>
-                          {template.description && (
-                            <Typography variant="body2" color="text.secondary">
-                              {template.description}
-                            </Typography>
-                          )}
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
-                            <Typography 
-                              component="span" 
-                              variant="body2" 
-                              sx={{ 
-                                bgcolor: 'rgba(0, 0, 0, 0.08)', 
-                                px: 1, 
-                                py: 0.5, 
-                                borderRadius: '4px',
-                                fontSize: '0.75rem'
-                              }}
-                            >
-                              {`${template.exercises ? template.exercises.length : 0} exercises`}
-                            </Typography>
-                            {template.deletedAt && (
-                              <Typography 
-                                component="span" 
-                                variant="body2" 
-                                sx={{ 
-                                  bgcolor: 'rgba(211, 47, 47, 0.1)', // Very light red background
-                                  px: 1, 
-                                  py: 0.5, 
-                                  borderRadius: '4px',
-                                  fontSize: '0.75rem',
-                                  fontStyle: 'italic'
-                                }}
-                              >
-                                Retired: {new Date(template.deletedAt).toLocaleDateString()}
-                              </Typography>
-                            )}
-                          </Box>
-                        </Box>
-                      }
-                    />
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <IconButton 
-                        onClick={() => handleRestoreTemplate(template._id)}
-                        size="small"
-                        sx={{ color: 'success.main' }} // Green color for restore
-                      >
-                        <RestoreIcon />
-                      </IconButton>
-                      <IconButton 
-                        onClick={() => handleHardDeleteTemplate(template._id)}
-                        size="small"
-                        sx={{ color: 'error.dark' }} // Darker red for permanent delete
-                      >
-                        <DeleteForeverIcon />
-                      </IconButton>
-                    </Box>
-                  </ListItem>
-                ))
-              : (
-                <ListItem>
-                  <ListItemText primary="No retired workout templates found" />
-                </ListItem>
-              )}
-            </List>
-          </Box>
-        </Paper>
-      </Paper>
+        )}
+      </TabPanel>
 
-      <Dialog open={openExerciseDialog} onClose={() => setOpenExerciseDialog(false)}>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h6">Select Exercises</Typography>
-            <TextField
-              label="Search Exercises"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ width: 200 }}
-            />
+      {/* Retired Templates Tab */}
+      <TabPanel value={activeTab} index={2}>
+        {retiredTemplates.length === 0 ? (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body1" color="textSecondary">
+              No retired templates found.
+            </Typography>
+          </Paper>
+        ) : (
+          <Box>
+            {retiredTemplates.filter(template => 
+              template.name.toLowerCase().includes(searchTerm.toLowerCase())
+            ).map(template => renderTemplateItem(template))}
           </Box>
-        </DialogTitle>
+        )}
+      </TabPanel>
+
+      {showCreateForm && renderCreateForm()}
+      {editingTemplate && renderTemplateEditDialog()}
+      
+      {/* Exercise Selection Dialog */}
+      <Dialog 
+        open={openExerciseDialog} 
+        onClose={() => setOpenExerciseDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Select Exercises</DialogTitle>
         <DialogContent>
-          <List sx={{ width: '100%', minWidth: 360 }}>
-            {categories.map((category) => {
-              const categoryExercises = exercises.filter(
-                exercise => exercise.category === category && 
-                exercise.name.toLowerCase().includes(searchTerm.toLowerCase())
-              );
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Search Exercises"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={exerciseSearchTerm}
+            onChange={(e) => setExerciseSearchTerm(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+          
+          {/* Group exercises by category */}
+          <Box sx={{ mt: 2 }}>
+            {(() => {
+              // Group exercises by category
+              const exercisesByCategory = {};
               
-              if (categoryExercises.length === 0) return null;
+              // Initialize categories with empty arrays
+              categories.forEach(category => {
+                exercisesByCategory[category] = [];
+              });
+              
+              // Populate categories with exercises that match the search term
+              exercises.forEach(exercise => {
+                if (exercise.name.toLowerCase().includes(exerciseSearchTerm.toLowerCase())) {
+                  if (exercisesByCategory[exercise.category]) {
+                    exercisesByCategory[exercise.category].push(exercise);
+                  } else {
+                    // Handle case where exercise has a category not in our predefined list
+                    if (!exercisesByCategory['Other']) {
+                      exercisesByCategory['Other'] = [];
+                    }
+                    exercisesByCategory['Other'].push(exercise);
+                  }
+                }
+              });
               
               return (
-                <Box key={category}>
-                  <ListItem 
-                    button 
-                    onClick={() => handleToggle(category)}
-                    sx={{ py: 1 }}
-                  >
-                    <ListItemIcon>
-                      <Box sx={{ width: 24, height: 24, borderRadius: '50%', bgcolor: categoryColors[category] }} />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Typography variant="body1">{category}</Typography>
-                          <Typography 
-                            variant="body2" 
-                            sx={{ 
-                              ml: 1, 
-                              bgcolor: 'rgba(0, 0, 0, 0.08)', 
-                              px: 1, 
-                              py: 0.5, 
-                              borderRadius: '12px',
-                              fontSize: '0.75rem'
-                            }}
-                          >
-                            {categoryExercises.length}
-                          </Typography>
-                        </Box>
-                      } 
-                    />
-                    {expanded[category] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  </ListItem>
-                  <Collapse in={expanded[category]} timeout="auto" unmountOnExit>
-                    {categoryExercises.map((exercise) => (
-                      <ListItem 
-                        key={exercise._id} 
-                        button 
-                        onClick={() => handleExerciseToggle(exercise)}
-                        sx={{ pl: 4 }}
+                <Box>
+                  {categories.map(category => {
+                    const categoryExercises = exercisesByCategory[category] || [];
+                    if (categoryExercises.length === 0) return null;
+                    
+                    return (
+                      <Paper 
+                        key={category}
+                        elevation={2} 
+                        sx={{ 
+                          mb: 2, 
+                          overflow: 'hidden',
+                          borderRadius: '8px',
+                          border: `1px solid ${categoryColors[category]}40`
+                        }}
                       >
-                        <ListItemIcon>
-                          <Checkbox
-                            edge="start"
-                            checked={selectedExercises.some(e => e._id === exercise._id)}
-                            tabIndex={-1}
-                            disableRipple
-                          />
-                        </ListItemIcon>
-                        <ListItemText primary={exercise.name} />
-                      </ListItem>
-                    ))}
-                  </Collapse>
-                  <Divider />
+                        <Box 
+                          sx={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center',
+                            bgcolor: categoryColors[category], 
+                            color: 'white',
+                            px: 2,
+                            py: 1,
+                            borderBottom: expandedCategories[category] ? `1px solid ${categoryColors[category]}40` : 'none'
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                              {category}
+                            </Typography>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                ml: 1, 
+                                bgcolor: 'rgba(255, 255, 255, 0.2)', 
+                                px: 1, 
+                                py: 0.5, 
+                                borderRadius: '12px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {categoryExercises.length}
+                            </Typography>
+                          </Box>
+                          <IconButton 
+                            onClick={() => toggleCategoryExpansion(category)} 
+                            sx={{ color: 'white' }}
+                            size="small"
+                          >
+                            {expandedCategories[category] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          </IconButton>
+                        </Box>
+                        <Collapse in={expandedCategories[category]} timeout="auto" unmountOnExit>
+                          <List sx={{ pt: 0, pb: 0 }}>
+                            {categoryExercises.map((exercise, index) => (
+                              <React.Fragment key={exercise._id}>
+                                {index > 0 && <Divider />}
+                                <ListItem
+                                  sx={{
+                                    py: 1.5,
+                                    transition: 'background-color 0.2s',
+                                    '&:hover': {
+                                      bgcolor: 'rgba(0, 0, 0, 0.04)'
+                                    }
+                                  }}
+                                >
+                                  <ListItemIcon>
+                                    <Checkbox
+                                      edge="start"
+                                      checked={selectedExercises.some(e => e._id === exercise._id)}
+                                      onChange={() => {
+                                        if (selectedExercises.some(e => e._id === exercise._id)) {
+                                          setSelectedExercises(selectedExercises.filter(e => e._id !== exercise._id));
+                                        } else {
+                                          setSelectedExercises([...selectedExercises, {
+                                            ...exercise,
+                                            sets: 3,
+                                            reps: exercise.defaultReps || 8
+                                          }]);
+                                        }
+                                      }}
+                                    />
+                                  </ListItemIcon>
+                                  <Box sx={{ width: '100%' }}>
+                                    <Typography variant="subtitle1">{exercise.name}</Typography>
+                                    
+                                    {selectedExercises.some(e => e._id === exercise._id) && (
+                                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                                        <TextField
+                                          label="Sets"
+                                          type="number"
+                                          size="small"
+                                          value={selectedExercises.find(e => e._id === exercise._id)?.sets || 3}
+                                          onChange={(e) => {
+                                            const updatedExercises = selectedExercises.map(ex => {
+                                              if (ex._id === exercise._id) {
+                                                return {
+                                                  ...ex,
+                                                  sets: parseInt(e.target.value) || 1
+                                                };
+                                              }
+                                              return ex;
+                                            });
+                                            setSelectedExercises(updatedExercises);
+                                          }}
+                                          sx={{ width: '80px', mr: 2 }}
+                                          InputProps={{ inputProps: { min: 1, max: 10 } }}
+                                        />
+                                        <TextField
+                                          label="Reps"
+                                          type="number"
+                                          size="small"
+                                          value={selectedExercises.find(e => e._id === exercise._id)?.reps || 8}
+                                          onChange={(e) => {
+                                            const updatedExercises = selectedExercises.map(ex => {
+                                              if (ex._id === exercise._id) {
+                                                return {
+                                                  ...ex,
+                                                  reps: parseInt(e.target.value) || 1
+                                                };
+                                              }
+                                              return ex;
+                                            });
+                                            setSelectedExercises(updatedExercises);
+                                          }}
+                                          sx={{ width: '80px' }}
+                                          InputProps={{ inputProps: { min: 1, max: 30 } }}
+                                        />
+                                      </Box>
+                                    )}
+                                  </Box>
+                                </ListItem>
+                              </React.Fragment>
+                            ))}
+                          </List>
+                        </Collapse>
+                      </Paper>
+                    );
+                  })}
                 </Box>
               );
-            })}
-          </List>
+            })()}
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenExerciseDialog(false)}>Done</Button>
+          <Button onClick={() => setOpenExerciseDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={() => {
+              // Add selected exercises to the template
+              if (editingTemplate) {
+                setEditingTemplate({
+                  ...editingTemplate,
+                  exercises: [...editingTemplate.exercises, ...selectedExercises]
+                });
+              } else {
+                setNewTemplate({
+                  ...newTemplate,
+                  exercises: [...newTemplate.exercises, ...selectedExercises]
+                });
+              }
+              setOpenExerciseDialog(false);
+            }} 
+            color="primary"
+            disabled={selectedExercises.length === 0}
+          >
+            Add Selected Exercises
+          </Button>
         </DialogActions>
       </Dialog>
     </Container>

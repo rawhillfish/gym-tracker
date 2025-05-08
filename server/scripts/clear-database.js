@@ -79,7 +79,7 @@ const seedDatabase = async () => {
     // Seed Exercises
     const exercises = await Exercise.create([
       { name: 'Bench Press', defaultReps: 8, category: 'Chest', isDeleted: false },
-      { name: 'Squat', defaultReps: 8, category: 'Legs', isDeleted: false },
+      { name: 'Squat', defaultReps: 8, category: 'Legs (Quads)', isDeleted: false },
       { name: 'Deadlift', defaultReps: 8, category: 'Back', isDeleted: false },
       { name: 'Shoulder Press', defaultReps: 8, category: 'Shoulders', isDeleted: false },
       { name: 'Barbell Row', defaultReps: 8, category: 'Back', isDeleted: false },
@@ -87,8 +87,8 @@ const seedDatabase = async () => {
       { name: 'Dips', defaultReps: 8, category: 'Chest', isDeleted: false },
       { name: 'Bicep Curls', defaultReps: 12, category: 'Arms', isDeleted: false },
       { name: 'Tricep Extensions', defaultReps: 12, category: 'Arms', isDeleted: false },
-      { name: 'Leg Press', defaultReps: 12, category: 'Legs', isDeleted: false },
-      { name: 'Calf Raises', defaultReps: 15, category: 'Legs', isDeleted: false },
+      { name: 'Leg Press', defaultReps: 12, category: 'Legs (Quads)', isDeleted: false },
+      { name: 'Calf Raises', defaultReps: 15, category: 'Legs (Calves)', isDeleted: false },
       { name: 'Lateral Raises', defaultReps: 15, category: 'Shoulders', isDeleted: false },
       { name: 'Face Pulls', defaultReps: 15, category: 'Shoulders', isDeleted: false }
     ]);
@@ -102,7 +102,7 @@ const seedDatabase = async () => {
     
     // Seed Workout Templates with exercise IDs
     const pushTemplate = {
-      name: 'Push Day',
+      name: '2DFB (1/4) Bench Press',
       exercises: [
         { name: 'Bench Press', exerciseId: exerciseMap['Bench Press'], sets: 4, reps: 8 },
         { name: 'Shoulder Press', exerciseId: exerciseMap['Shoulder Press'], sets: 3, reps: 10 },
@@ -112,7 +112,7 @@ const seedDatabase = async () => {
     };
     
     const pullTemplate = {
-      name: 'Pull Day',
+      name: '2DFB (2/4) Deadlift',
       exercises: [
         { name: 'Deadlift', exerciseId: exerciseMap['Deadlift'], sets: 3, reps: 8 },
         { name: 'Barbell Row', exerciseId: exerciseMap['Barbell Row'], sets: 3, reps: 10 },
@@ -122,7 +122,7 @@ const seedDatabase = async () => {
     };
     
     const legTemplate = {
-      name: 'Leg Day',
+      name: '2DFB (3/4) Squat',
       exercises: [
         { name: 'Squat', exerciseId: exerciseMap['Squat'], sets: 4, reps: 8 },
         { name: 'Leg Press', exerciseId: exerciseMap['Leg Press'], sets: 3, reps: 12 },

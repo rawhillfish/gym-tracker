@@ -1,0 +1,47 @@
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background elements -->
+  <circle cx="400" cy="300" r="250" fill="#E3F2FD" opacity="0.5"/>
+  
+  <!-- Barbell -->
+  <rect x="150" y="290" width="500" height="20" rx="10" fill="#90CAF9"/>
+  
+  <!-- Weight plates left -->
+  <rect x="130" y="260" width="20" height="80" rx="5" fill="#1976D2"/>
+  <rect x="110" y="250" width="20" height="100" rx="5" fill="#1565C0"/>
+  <rect x="90" y="240" width="20" height="120" rx="5" fill="#0D47A1"/>
+  
+  <!-- Weight plates right -->
+  <rect x="650" y="260" width="20" height="80" rx="5" fill="#1976D2"/>
+  <rect x="670" y="250" width="20" height="100" rx="5" fill="#1565C0"/>
+  <rect x="690" y="240" width="20" height="120" rx="5" fill="#0D47A1"/>
+  
+  <!-- Person silhouette -->
+  <circle cx="400" cy="180" r="40" fill="#455A64"/>
+  <rect x="380" y="220" width="40" height="100" rx="20" fill="#455A64"/>
+  
+  <!-- Arms -->
+  <rect x="340" y="240" width="40" height="20" rx="10" fill="#455A64" transform="rotate(-20 340 240)"/>
+  <rect x="420" y="240" width="40" height="20" rx="10" fill="#455A64" transform="rotate(20 420 240)"/>
+  
+  <!-- Hands -->
+  <circle cx="310" y="250" r="15" fill="#455A64"/>
+  <circle cx="490" y="250" r="15" fill="#455A64"/>
+  
+  <!-- Legs -->
+  <rect x="380" y="320" width="20" height="100" rx="10" fill="#455A64" transform="rotate(-10 380 320)"/>
+  <rect x="400" y="320" width="20" height="100" rx="10" fill="#455A64" transform="rotate(10 400 320)"/>
+  
+  <!-- Feet -->
+  <ellipse cx="360" cy="420" rx="20" ry="10" fill="#455A64"/>
+  <ellipse cx="440" cy="420" rx="20" ry="10" fill="#455A64"/>
+  
+  <!-- Chart element -->
+  <rect x="550" y="100" width="150" height="100" rx="10" fill="white" stroke="#1976D2" stroke-width="2"/>
+  <path d="M560 150 L580 170 L600 130 L620 160 L640 120 L660 140 L680 110 L700 150" stroke="#F44336" stroke-width="3" fill="none"/>
+  <path d="M560 180 L580 160 L600 170 L620 150 L640 165 L660 140 L680 160 L700 130" stroke="#4CAF50" stroke-width="3" fill="none"/>
+  
+  <!-- Dumbbell element -->
+  <circle cx="150" cy="150" r="30" fill="#1976D2"/>
+  <rect x="180" y="145" width="60" height="10" rx="5" fill="#90CAF9"/>
+  <circle cx="250" cy="150" r="30" fill="#1976D2"/>
+</svg>

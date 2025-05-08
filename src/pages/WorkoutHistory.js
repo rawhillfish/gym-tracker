@@ -40,7 +40,8 @@ import {
   List,
   ListItem,
   LinearProgress,
-  FormControlLabel
+  FormControlLabel,
+  Avatar
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -118,11 +119,14 @@ const WorkoutHistory = () => {
       '#96CEB4',  // green
       '#FFEEAD',  // yellow
     ];
-    
     const colors = {};
-    users.forEach((user, index) => {
-      colors[user._id] = defaultColors[index % defaultColors.length];
-    });
+    if (Array.isArray(users)) {
+      users.forEach((user, index) => {
+        if (user && user._id) {
+          colors[user._id] = defaultColors[index % defaultColors.length];
+        }
+      });
+    }
     // User colors are now stored in the colors variable
     console.log('Users:', users);
     console.log('User colors:', colors);
@@ -130,8 +134,6 @@ const WorkoutHistory = () => {
 
   useEffect(() => {
     // This effect runs when users or showRetiredUsers changes
-    console.log('showRetiredUsers or users changed:', { showRetiredUsers, users });
-    
     // Make sure the selectedUsers state is consistent with the showRetiredUsers setting
     if (users.length > 0) {
       setSelectedUsers(prevSelected => {
@@ -148,16 +150,23 @@ const WorkoutHistory = () => {
       });
     }
   }, [showRetiredUsers, users]);
-
   const fetchWorkouts = async () => {
     try {
       const response = await apiService.getCompletedWorkouts();
-      const fetchedWorkouts = response.data;
-      console.log('Fetched workouts:', fetchedWorkouts);
+      
+      // Handle different response formats
+      let fetchedWorkouts = [];
+      if (response && Array.isArray(response)) {
+        fetchedWorkouts = response;
+      } else if (response && response.data && Array.isArray(response.data)) {
+        fetchedWorkouts = response.data;
+      }
+      
+      console.log("Fetched workouts:", fetchedWorkouts);
       
       // Log the first workout to see its structure
       if (fetchedWorkouts.length > 0) {
-        console.log('Sample workout structure:', JSON.stringify(fetchedWorkouts[0], null, 2));
+        console.log("Sample workout structure:", JSON.stringify(fetchedWorkouts[0], null, 2));
       }
       
       // Extract all unique user IDs from workouts
@@ -165,36 +174,45 @@ const WorkoutHistory = () => {
       fetchedWorkouts.forEach(workout => {
         if (workout.userId) {
           workoutUserIds.add(workout.userId);
+        } else if (workout.user && workout.user._id) {
+          workoutUserIds.add(workout.user._id);
         }
       });
-      console.log('User IDs found in workouts:', [...workoutUserIds]);
+      console.log("User IDs found in workouts:", [...workoutUserIds]);
       
       setWorkoutHistory(fetchedWorkouts);
     } catch (error) {
-      console.error('Error fetching workouts:', error);
+      console.error("Error fetching workouts:", error);
     }
-  };
+  }
 
   const fetchUsers = async () => {
     try {
       const response = await apiService.getUsers();
-      const fetchedUsers = response.data;
       
-      console.log('Raw fetched users:', fetchedUsers);
+      // Handle different response formats
+      let fetchedUsers = [];
+      if (response && Array.isArray(response)) {
+        fetchedUsers = response;
+      } else if (response && response.data && Array.isArray(response.data)) {
+        fetchedUsers = response.data;
+      }
+      
+      console.log("Raw fetched users:", fetchedUsers);
       setUsers(fetchedUsers);
       
       // Initialize selectedUsers with all active user IDs
       if (fetchedUsers.length > 0 && selectedUsers.length === 0) {
         // Select all non-retired users initially
         const activeUserIds = fetchedUsers
-          .filter(user => !user.retired)
+          .filter(user => user && user._id)
           .map(user => user._id);
         setSelectedUsers(activeUserIds);
       }
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error("Error fetching users:", error);
     }
-  };
+  }
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -517,9 +535,13 @@ const WorkoutHistory = () => {
       if (!stats.byUser[userId]) {
         // Find user in users array
         const user = users.find(u => u._id === userId);
+        
+        // Use workout.user data if available and user not found in users array
+        const workoutUser = workout.user || {};
+        
         stats.byUser[userId] = {
-          name: user ? user.name : (workout.user ? workout.user.name : 'Unknown User'),
-          color: user ? user.color : (workout.user ? workout.user.color : '#888888'),
+          name: user ? user.name : (workoutUser.name || 'Unknown User'),
+          color: user ? user.color : (workoutUser.color || '#888888'),
           total: 0,
           byTemplate: {}
         };
@@ -630,27 +652,35 @@ const WorkoutHistory = () => {
       }}>
         {payload.map((entry, index) => {
           // Safely access nested properties with optional chaining
-          const userData = entry?.payload?.users?.[entry.dataKey?.split('.')[1]];
+          const userKey = entry.dataKey?.split('.')[1];
+          const userData = entry?.payload?.users?.[userKey];
           if (!userData) return null;
+          
+          // Find the user in the users array to get the most up-to-date information
+          const user = users.find(u => u._id === userKey);
+          
+          // Use the most complete information available
+          const displayName = (user && user.name) || userData.name || 'Unknown User';
+          const displayColor = (user && user.color) || userData.color || '#cccccc';
           
           return (
             <div key={index} style={{ 
               marginBottom: '16px',
               padding: '10px',
-              backgroundColor: `${userData.color}10`,
-              border: `1px solid ${userData.color}33`,
+              backgroundColor: `${displayColor}10`,
+              border: `1px solid ${displayColor}33`,
               borderRadius: '6px'
             }}>
               <p style={{ 
                 margin: '0 0 8px', 
                 fontWeight: 'bold',
                 fontSize: '15px',
-                color: userData.color || entry.color,
+                color: displayColor || entry.color,
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}>
-                <span>{userData.name}</span>
+                <span>{displayName}</span>
                 <span>{userData.value} {chartMetric === 'volume' ? 'kg (total volume)' : 'kg (max weight)'}</span>
               </p>
               
@@ -885,8 +915,10 @@ const WorkoutHistory = () => {
               if (workoutsOnDate.length > 0) {
                 // Get unique users who worked out on this date
                 const uniqueWorkoutsByUser = workoutsOnDate.reduce((acc, workout) => {
-                  if (!acc[workout.user._id]) {
-                    acc[workout.user._id] = workout;
+                  // Use either userId or user._id, whichever is available
+                  const userId = workout.userId || (workout.user && workout.user._id);
+                  if (!acc[userId]) {
+                    acc[userId] = workout;
                   }
                   return acc;
                 }, {});
@@ -898,26 +930,84 @@ const WorkoutHistory = () => {
                 const userNames = [];
                 
                 if (uniqueUsers.length === 1) {
-                  backgroundStyle = uniqueUsers[0].user.color;
-                  userNames.push(uniqueUsers[0].user.name);
-                } else if (uniqueUsers.length === 2) {
+                  // Check if user exists and has a color property
+                  const workout = uniqueUsers[0];
+                  const user = workout.user || {};
+                  
+                  if (user && user.color) {
+                    backgroundStyle = user.color;
+                  } else {
+                    backgroundStyle = '#cccccc'; // Default color if user or color is missing
+                  }
+                  
+                  // Add user name if available
+                  if (user && user.name) {
+                    userNames.push(user.name);
+                  } else {
+                    // Try to find the user in the users array
+                    const userId = workout.userId || (user && user._id);
+                    const foundUser = users.find(u => u._id === userId);
+                    if (foundUser && foundUser.name) {
+                      userNames.push(foundUser.name);
+                    } else {
+                      userNames.push('Unknown User');
+                    }
+                  }
+                }
+
+                if (uniqueUsers.length === 2) {
                   console.log('Two users found:', {
                     user1: uniqueUsers[0].user,
                     user2: uniqueUsers[1].user
                   });
                   
-                  const color1 = uniqueUsers[0].user.color;
-                  const color2 = uniqueUsers[1].user.color;
+                  // Check if both users exist and have color properties
+                  const workout1 = uniqueUsers[0];
+                  const workout2 = uniqueUsers[1];
+                  const user1 = workout1.user || {};
+                  const user2 = workout2.user || {};
+                  
+                  // Try to find users in the users array if not available in workout
+                  const userId1 = workout1.userId || (user1 && user1._id);
+                  const userId2 = workout2.userId || (user2 && user2._id);
+                  const foundUser1 = users.find(u => u._id === userId1);
+                  const foundUser2 = users.find(u => u._id === userId2);
+                  
+                  const color1 = (foundUser1 && foundUser1.color) || (user1 && user1.color) || '#cccccc';
+                  const color2 = (foundUser2 && foundUser2.color) || (user2 && user2.color) || '#cccccc';
+                  
                   backgroundStyle = `linear-gradient(135deg, ${color1} 0%, ${color1} 50%, ${color2} 50%, ${color2} 100%)`;
-                  uniqueUsers.forEach(workout => {
-                    userNames.push(workout.user.name);
-                  });
+                  
+                  // Add user names if available
+                  if ((foundUser1 && foundUser1.name) || (user1 && user1.name)) {
+                    userNames.push((foundUser1 && foundUser1.name) || (user1 && user1.name));
+                  } else {
+                    userNames.push('Unknown User');
+                  }
+                  
+                  if ((foundUser2 && foundUser2.name) || (user2 && user2.name)) {
+                    userNames.push((foundUser2 && foundUser2.name) || (user2 && user2.name));
+                  } else {
+                    userNames.push('Unknown User');
+                  }
                 } else if (uniqueUsers.length > 2) {
-                  const colors = uniqueUsers.slice(0, 3).map(workout => workout.user.color);
-                  backgroundStyle = `linear-gradient(135deg, ${colors[0]} 0%, ${colors[0]} 33.33%, ${colors[1]} 33.33%, ${colors[1]} 66.66%, ${colors[2]} 66.66%, ${colors[2]} 100%)`;
-                  uniqueUsers.slice(0, 3).forEach(workout => {
-                    userNames.push(workout.user.name);
+                  // For more than 2 users, use a special background
+                  backgroundStyle = 'linear-gradient(135deg, #f44336 0%, #2196f3 50%, #4caf50 100%)';
+                  
+                  // Add all available user names
+                  uniqueUsers.forEach(workout => {
+                    const user = workout.user || {};
+                    const userId = workout.userId || (user && user._id);
+                    const foundUser = users.find(u => u._id === userId);
+                    
+                    if ((foundUser && foundUser.name) || (user && user.name)) {
+                      userNames.push((foundUser && foundUser.name) || (user && user.name));
+                    }
                   });
+                  
+                  if (userNames.length === 0) {
+                    userNames.push('Multiple Users');
+                  }
                 }
                 
                 console.log('Background style:', backgroundStyle);
@@ -1124,9 +1214,9 @@ const WorkoutHistory = () => {
                             label={user.name + (user.retired ? ' (Retired)' : '')} 
                             size="small" 
                             style={{ 
-                              backgroundColor: `${user.color}33`,
-                              borderColor: user.color,
-                              borderWidth: '1px',
+                              backgroundColor: user.color ? `${user.color}33` : '#cccccc33',
+                              borderColor: user.color || '#cccccc',
+                              borderWidth: 1,
                               borderStyle: 'solid',
                               opacity: user.retired ? 0.7 : 1
                             }}
@@ -1138,25 +1228,28 @@ const WorkoutHistory = () => {
                 >
                   {users
                     .map((user) => (
-                      <MenuItem 
-                        key={user._id} 
-                        value={user._id}
-                        style={{ 
-                          display: (!showRetiredUsers && user.retired) ? 'none' : 'flex',
-                          opacity: user.retired ? 0.7 : 1
-                        }}
-                      >
-                        <Checkbox checked={selectedUsers.indexOf(user._id) > -1} />
-                        <ListItemText 
-                          primary={`${user.name}${user.retired ? ' (Retired)' : ''}`}
-                          primaryTypographyProps={{
-                            style: { 
-                              color: user.color,
-                              opacity: user.retired ? 0.7 : 1
-                            }
+                      // Check if user exists and has an _id before rendering
+                      user && user._id ? (
+                        <MenuItem 
+                          key={user._id} 
+                          value={user._id}
+                          style={{ 
+                            display: (!showRetiredUsers && user.retired) ? 'none' : 'flex',
+                            opacity: user.retired ? 0.7 : 1
                           }}
-                        />
-                      </MenuItem>
+                        >
+                          <Checkbox checked={selectedUsers.indexOf(user._id) > -1} />
+                          <ListItemText 
+                            primary={`${user.name || 'Unknown User'}${user.retired ? ' (Retired)' : ''}`}
+                            primaryTypographyProps={{
+                              style: { 
+                                color: user.color || '#cccccc',
+                                opacity: user.retired ? 0.7 : 1
+                              }
+                            }}
+                          />
+                        </MenuItem>
+                      ) : null
                     ))}
                 </Select>
               </FormControl>
@@ -1241,7 +1334,7 @@ const WorkoutHistory = () => {
                     key={user._id}
                     type="monotone"
                     dataKey={`users.${user._id}.value`}
-                    name={user.name}
+                    name={user && user.name ? user.name : 'Unknown User'}
                     stroke={user.color || `#${Math.floor(Math.random()*16777215).toString(16)}`}
                     strokeWidth={2}
                     dot={{ r: 5, style: { cursor: 'pointer' } }}
@@ -1442,21 +1535,26 @@ const WorkoutHistory = () => {
                 {Object.entries(workoutStats.byUser)
                   .sort((a, b) => b[1].total - a[1].total) // Sort by total workouts descending
                   .map(([userId, userData], index) => {
-                    const user = users.find(u => u._id === userId) || userData;
+                    // Try to find the user in the users array
+                    const user = users.find(u => u._id === userId);
+                    
+                    // Combine data from both sources to ensure we have the most complete information
+                    const displayName = (user && user.name) || userData.name || 'Unknown User';
+                    const displayColor = (user && user.color) || userData.color || '#cccccc';
+                    
                     return (
                       <Box key={userId} sx={{ mb: 3 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <Box 
+                          <Avatar 
                             sx={{ 
-                              width: 12, 
-                              height: 12, 
-                              borderRadius: '50%', 
-                              bgcolor: user.color || userData.color,
-                              mr: 1 
+                              width: 24, 
+                              height: 24, 
+                              mr: 1,
+                              bgcolor: displayColor,
                             }} 
                           />
                           <Typography variant="subtitle2">
-                            {user.name || userData.name} {user.retired ? '(Retired)' : ''}
+                            {displayName} {user && user.retired ? '(Retired)' : ''}
                           </Typography>
                         </Box>
                         

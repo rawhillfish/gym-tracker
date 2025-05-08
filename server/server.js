@@ -57,6 +57,7 @@ const checkAndSeedDatabase = async () => {
     const User = require('./models/User');
     const Exercise = require('./models/Exercise');
     const WorkoutTemplate = require('./models/WorkoutTemplate');
+    const Auth = require('./models/Auth');
     
     // Check if we have any users
     const userCount = await User.countDocuments();
@@ -72,6 +73,40 @@ const checkAndSeedDatabase = async () => {
         { name: 'Andrew', color: '#f44336' }
       ]);
       console.log(`${users.length} users seeded successfully`);
+      
+      // Seed Auth records
+      const authRecords = await Promise.all(users.map(async (user) => {
+        let email;
+        
+        // Set specific credentials for known users
+        if (user.name === 'Jason') {
+          email = 'jason@example.com';
+        } else if (user.name === 'Andrew') {
+          email = 'andrew@example.com';
+        } else {
+          // For default or other users, generate an email based on name
+          email = `${user.name.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+        }
+        
+        // Use the same password for all users in development
+        const password = 'password123';
+        
+        // Create the auth record
+        return Auth.create({
+          email,
+          password, // This will be hashed by the pre-save hook
+          userId: user._id
+        });
+      }));
+      console.log(`${authRecords.length} auth records seeded successfully`);
+      
+      // Log the login credentials
+      console.log('\nLogin credentials:');
+      users.forEach((user, index) => {
+        console.log(`${user.name}:`);
+        console.log(`  Email: ${authRecords[index].email}`);
+        console.log(`  Password: password123`);
+      });
       
       // Seed Exercises
       const exercises = await Exercise.create([
@@ -238,11 +273,19 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Routes
-app.use('/api/completed-workouts', require('./routes/completed-workouts'));
-app.use('/api/users', require('./routes/users'));
-app.use('/api/exercises', require('./routes/exercises'));
-app.use('/api/workout-templates', require('./routes/workout-templates'));
+// Import routes
+const usersRouter = require('./routes/users');
+const exercisesRouter = require('./routes/exercises');
+const workoutTemplatesRouter = require('./routes/workout-templates');
+const completedWorkoutsRouter = require('./routes/completed-workouts');
+const authRouter = require('./routes/auth');
+
+// Mount routes
+app.use('/api/users', usersRouter);
+app.use('/api/exercises', exercisesRouter);
+app.use('/api/workout-templates', workoutTemplatesRouter);
+app.use('/api/completed-workouts', completedWorkoutsRouter);
+app.use('/api/auth', authRouter);
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {

@@ -1,5 +1,5 @@
 // src/services/api.js
-import axios from 'axios';
+// Using native fetch API instead of axios
 
 // Use full URLs for API calls
 const API_URL = process.env.REACT_APP_API_URL || 
@@ -12,219 +12,519 @@ console.log('API URL:', API_URL);
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
 
-// Create an axios instance with default config
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Origin, Content-Type, Accept',
-  },
-  withCredentials: false,
-  timeout: 10000, // 10 second timeout
-});
+// Default headers
+const defaultHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Origin, Content-Type, Accept',
+};
 
-// Add retry functionality
+// Timeout function for fetch
+const fetchWithTimeout = (url, options, timeout = 10000) => {
+  return Promise.race([
+    fetch(url, options),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timed out')), timeout)
+    )
+  ]);
+};
+
+// Create a request function with retry capability
 const MAX_RETRIES = 3;
-const retryDelay = (retryCount) => {
-  return retryCount * 1000; // 1s, 2s, 3s
-};
-
-// Create a retry function
-const retryRequest = async (config, error) => {
-  const retryCount = config.retryCount || 0;
-  
-  // Check if we've maxed out the retries
-  if (retryCount >= MAX_RETRIES) {
-    return Promise.reject(error);
-  }
-  
-  // Increase the retry count
-  config.retryCount = retryCount + 1;
-  
-  // Create a new promise to handle the retry
-  return new Promise((resolve) => {
-    console.log(`Retrying request to ${config.url} (Attempt ${config.retryCount} of ${MAX_RETRIES})`);
-    setTimeout(() => resolve(api(config)), retryDelay(config.retryCount));
-  });
-};
-
-// Add request interceptor for logging and authentication if needed
-api.interceptors.request.use(
-  (config) => {
+const request = async (url, options, retryCount = 0) => {
+  try {
     // Log outgoing requests
-    console.log(`API Request [${config.method.toUpperCase()}]:`, config.url);
+    console.log(`API Request [${options.method}]:`, url);
+    console.log('Request options:', {
+      method: options.method,
+      headers: options.headers,
+      bodyLength: options.body ? options.body.length : 0
+    });
     
-    // You can add auth token here if implementing authentication
-    return config;
-  },
-  (error) => {
-    console.error('API Request Error:', error.message);
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor for error handling
-api.interceptors.response.use(
-  (response) => {
-    console.log(`API Success [${response.config.method.toUpperCase()} ${response.config.url}]:`, response.status);
-    // Log more details for DELETE requests to help debug the soft deletion issue
-    if (response.config.method.toUpperCase() === 'DELETE' && response.config.url.includes('/api/exercises/')) {
-      console.log('DELETE Exercise Response Data:', response.data);
-    }
-    return response;
-  },
-  (error) => {
-    const { config } = error;
+    // Make the request
+    const fullUrl = `${API_URL}${url}`;
+    console.log('Full URL:', fullUrl);
     
-    // Only retry on network errors, timeouts, or 5xx errors
-    const shouldRetry = (
-      !error.response || 
-      error.code === 'ECONNABORTED' || 
-      (error.response && error.response.status >= 500)
-    );
+    const response = await fetchWithTimeout(fullUrl, options);
     
-    if (shouldRetry && config) {
-      // Log the error before retrying
-      if (error.code === 'ECONNABORTED') {
-        console.error('API Timeout Error:', error.message, 'for URL:', config.url);
-      } else if (error.response) {
-        console.error('API Server Error:', {
-          status: error.response.status,
-          url: config.url,
-          method: config.method
-        });
-      } else if (error.request) {
-        console.error('API No Response Error:', {
-          url: config.url,
-          method: config.method
-        });
-      }
+    console.log('Response status:', response.status);
+    
+    // Check if response is ok
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Response error data:', errorData);
       
-      // Attempt to retry the request
-      return retryRequest(config, error);
+      const error = new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`);
+      error.status = response.status;
+      error.data = errorData;
+      error.url = url;
+      error.method = options.method.toLowerCase();
+      throw error;
     }
     
-    // For errors we don't want to retry, log and reject
-    if (error.response) {
-      // Client errors (4xx)
-      console.error('API Client Error:', {
-        status: error.response.status,
-        data: error.response.data,
-        url: error.config.url,
-        method: error.config.method
-      });
-    } else if (error.code === 'ECONNABORTED' && !shouldRetry) {
-      // Timeout error that we're not retrying (max retries reached)
-      console.error('API Max Retries Reached for Timeout:', error.message);
-    } else if (error.request && !shouldRetry) {
-      // No response error that we're not retrying (max retries reached)
-      console.error('API Max Retries Reached for No Response Error');
-    } else {
-      // Other errors
-      console.error('API Error:', error.message);
+    // Parse response
+    if (response.status === 204) {
+      return null; // No content
     }
     
-    return Promise.reject(error);
+    return await response.json();
+  } catch (error) {
+    // Log client errors
+    console.error('API Client Error:', {
+      status: error.status,
+      data: error.data,
+      url,
+      method: options.method.toLowerCase()
+    });
+    
+    // Retry logic
+    if (retryCount < MAX_RETRIES) {
+      console.log(`Retrying request to ${url} (Attempt ${retryCount + 1} of ${MAX_RETRIES})`);
+      const delay = (retryCount + 1) * 1000; // 1s, 2s, 3s
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return request(url, options, retryCount + 1);
+    }
+    
+    throw error;
   }
-);
+};
 
-// API service methods
+// Auth token storage
+let authToken = null;
+
+// API service object
 const apiService = {
-  // Health check
-  checkHealth: () => api.get('/health'),
-  // Exercises
-  getExercises: (params) => api.get('/api/exercises', { params }),
-  createExercise: (data) => api.post('/api/exercises', data),
-  updateExercise: (id, data) => api.put(`/api/exercises/${id}`, data),
-  retireExercise: (id) => api.delete(`/api/exercises/${id}`),
-  hardDeleteExercise: (id) => api.delete(`/api/exercises/${id}/permanent`),
-  restoreExercise: (id) => api.patch(`/api/exercises/${id}/restore`),
-  createExercisesBulk: (exercises) => api.post('/api/exercises/bulk', { exercises }),
-
-  // Workout Templates
-  getWorkoutTemplates(params) {
-    return api.get('/api/workout-templates', { params });
+  // Set auth token for future requests
+  setAuthToken(token) {
+    authToken = token;
+    localStorage.setItem('token', token);
   },
-  createWorkoutTemplate(data) {
-    return api.post('/api/workout-templates', data);
+  
+  // Remove auth token
+  removeAuthToken() {
+    authToken = null;
+    localStorage.removeItem('token');
   },
-  updateWorkoutTemplate(id, data) {
-    return api.put(`/api/workout-templates/${id}`, data);
+  
+  // Helper to get headers with auth token if available
+  getHeaders() {
+    const headers = { ...defaultHeaders };
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    return headers;
   },
-  retireWorkoutTemplate(id) {
-    return api.delete(`/api/workout-templates/${id}`);
-  },
-  restoreWorkoutTemplate(id) {
-    return api.patch(`/api/workout-templates/${id}/restore`);
-  },
-  hardDeleteWorkoutTemplate(id) {
-    return api.delete(`/api/workout-templates/${id}/permanent`);
-  },
-  importWorkoutTemplates(templates) {
-    return api.post('/api/workout-templates/import', { templates });
-  },
-
-  // Completed Workouts
-  getCompletedWorkouts: async () => {
+  
+  // Authentication
+  async register(data) {
+    console.log('Register attempt with data:', {
+      email: data.email,
+      passwordLength: data.password ? data.password.length : 0,
+      name: data.name
+    });
+    
     try {
-      console.log('API Service - Fetching completed workouts');
-      const response = await api.get('/api/completed-workouts');
-      console.log(`API Service - Fetched ${response.data?.length || 0} completed workouts`);
+      // Make sure we're not sending any auth token with the register request
+      const registerHeaders = { ...defaultHeaders };
       
-      // Debug the response
-      if (response.data && Array.isArray(response.data)) {
-        console.log('API Service - First workout template ID:', response.data[0]?.templateId);
-      } else {
-        console.log('API Service - No completed workouts found or invalid format');
+      const response = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: registerHeaders,
+        body: JSON.stringify(data)
+      });
+      
+      console.log('Register response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Register error data:', errorData);
+        throw new Error(errorData.error || 'Registration failed');
       }
       
+      const responseData = await response.json();
+      console.log('Registration successful, response:', responseData);
+      return responseData;
+    } catch (error) {
+      console.error('Registration failed with error:', error);
+      throw error;
+    }
+  },
+  
+  async login(data) {
+    console.log('Login attempt with data:', {
+      email: data.email,
+      passwordLength: data.password ? data.password.length : 0
+    });
+    
+    try {
+      // Make sure we're not sending any auth token with the login request
+      const loginHeaders = { ...defaultHeaders };
+      
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: loginHeaders,
+        body: JSON.stringify(data)
+      });
+      
+      console.log('Login response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Login error data:', errorData);
+        throw new Error(errorData.error || 'Login failed');
+      }
+      
+      const responseData = await response.json();
+      console.log('Login successful, response:', responseData);
+      return responseData;
+    } catch (error) {
+      console.error('Login failed with error:', error);
+      throw error;
+    }
+  },
+  
+  async getCurrentUser() {
+    try {
+      console.log('Getting current user with token');
+      
+      const response = await request('/api/auth/me', {
+        method: 'GET',
+        headers: this.getHeaders()
+      });
+      
+      console.log('Current user response:', response);
       return response;
     } catch (error) {
-      console.error('API Service - Error fetching completed workouts:', error);
-      return { data: [] };
+      console.error('Error getting current user:', error);
+      throw error;
     }
   },
-  createCompletedWorkout: (data) => {
-    // Log the original data for debugging
-    console.log('API Service - Creating completed workout with data:', JSON.stringify({
-      templateId: data.templateId,
-      templateName: data.templateName,
-      exercises: data.exercises?.length,
-      exerciseIds: data.exercises?.map(ex => ({ name: ex.name, exerciseId: ex.exerciseId }))
-    }, null, 2));
-    
-    // Don't modify the templateId if it's already set
-    // Only set a fallback if it's missing
-    const workoutData = {
-      ...data,
-      templateId: data.templateId || 'unknown-template'
-    };
-    
-    // Don't modify exerciseId if it's already set
-    // Only set a fallback if it's missing
-    if (workoutData.exercises && Array.isArray(workoutData.exercises)) {
-      workoutData.exercises = workoutData.exercises.map(exercise => ({
-        ...exercise,
-        exerciseId: exercise.exerciseId || 'unknown-exercise'
-      }));
-    }
-    
-    return api.post('/api/completed-workouts', workoutData);
+  
+  async updatePassword(data) {
+    return request('/api/auth/update-password', {
+      method: "PATCH",
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
+    });
   },
-  getCompletedWorkoutById: (id) => api.get(`/api/completed-workouts/${id}`),
-  updateCompletedWorkout: (id, data) => api.put(`/api/completed-workouts/${id}`, data),
-  deleteCompletedWorkout: (id) => api.delete(`/api/completed-workouts/${id}`),
-
+  
+  // Health check
+  async checkHealth() {
+    return request('/api/health', {
+      method: 'GET',
+      headers: this.getHeaders()
+    });
+  },
+  
+  // Exercises
+  async getExercises(params) {
+    const queryParams = params ? `?${new URLSearchParams(params)}` : '';
+    return request(`/api/exercises${queryParams}`, {
+      method: 'GET',
+      headers: this.getHeaders()
+    });
+  },
+  
+  async createExercise(data) {
+    return request('/api/exercises', {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
+    });
+  },
+  
+  async updateExercise(id, data) {
+    return request(`/api/exercises/${id}`, {
+      method: "PATCH",
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
+    });
+  },
+  
+  async retireExercise(id) {
+    return request(`/api/exercises/${id}/retire`, {
+      method: "PATCH",
+      headers: this.getHeaders()
+    });
+  },
+  
+  async hardDeleteExercise(id) {
+    return request(`/api/exercises/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders()
+    });
+  },
+  
+  async restoreExercise(id) {
+    return request(`/api/exercises/${id}/restore`, {
+      method: "PATCH",
+      headers: this.getHeaders()
+    });
+  },
+  
+  async createExercisesBulk(exercises) {
+    return request('/api/exercises/bulk', {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ exercises })
+    });
+  },
+  
+  // Workout Templates
+  async getWorkoutTemplates(options = {}) {
+    try {
+      // Build query params
+      const params = new URLSearchParams();
+      if (options.includeDeleted) {
+        params.append('includeDeleted', 'true');
+      }
+      if (options.includeGlobal) {
+        params.append('includeGlobal', 'true');
+      }
+      if (options.includeUserTemplates) {
+        params.append('includeUserTemplates', 'true');
+      }
+      
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+      return await request(`/api/workout-templates${queryString}`, {
+        method: 'GET',
+        headers: this.getHeaders()
+      });
+    } catch (error) {
+      console.error('Error fetching workout templates:', error);
+      throw error;
+    }
+  },
+  
+  async getUserWorkoutTemplates() {
+    return request('/api/workout-templates?includeUserTemplates=true', {
+      method: 'GET',
+      headers: this.getHeaders()
+    });
+  },
+  
+  async getGlobalWorkoutTemplates() {
+    return request('/api/workout-templates?includeGlobal=true', {
+      method: 'GET',
+      headers: this.getHeaders()
+    });
+  },
+  
+  async getWorkoutTemplate(id) {
+    try {
+      return await request(`/api/workout-templates/${id}`, {
+        method: 'GET',
+        headers: this.getHeaders()
+      });
+    } catch (error) {
+      console.error('Error fetching workout template:', error);
+      throw error;
+    }
+  },
+  
+  async createWorkoutTemplate(templateData) {
+    try {
+      return await request('/api/workout-templates', {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(templateData)
+      });
+    } catch (error) {
+      console.error('Error creating workout template:', error);
+      throw error;
+    }
+  },
+  
+  async updateWorkoutTemplate(id, templateData) {
+    try {
+      // Debug info
+      console.log('Updating workout template with ID:', id);
+      console.log('Auth token in headers:', `Bearer ${authToken}`);
+      console.log('Template data being sent:', templateData);
+      
+      return await request(`/api/workout-templates/${id}`, {
+        method: "PATCH",
+        headers: this.getHeaders(),
+        body: JSON.stringify(templateData)
+      });
+    } catch (error) {
+      console.error('Error updating workout template', id, ':', error);
+      throw error;
+    }
+  },
+  
+  async deleteWorkoutTemplate(id) {
+    try {
+      return await request(`/api/workout-templates/${id}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+    } catch (error) {
+      console.error('Error deleting workout template:', error);
+      throw error;
+    }
+  },
+  
+  async permanentlyDeleteWorkoutTemplate(id) {
+    try {
+      return await request(`/api/workout-templates/${id}/permanent`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+    } catch (error) {
+      console.error('Error permanently deleting workout template:', error);
+      throw error;
+    }
+  },
+  
+  async restoreWorkoutTemplate(id) {
+    try {
+      return await request(`/api/workout-templates/${id}/restore`, {
+        method: "PATCH",
+        headers: this.getHeaders()
+      });
+    } catch (error) {
+      console.error('Error restoring workout template:', error);
+      throw error;
+    }
+  },
+  
+  async importWorkoutTemplates(templates) {
+    try {
+      return await request('/api/workout-templates/import', {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ templates })
+      });
+    } catch (error) {
+      console.error('Error importing workout templates:', error);
+      throw error;
+    }
+  },
+  
+  // Completed Workouts
+  async getCompletedWorkouts() {
+    try {
+      return await request('/api/completed-workouts', {
+        method: 'GET',
+        headers: this.getHeaders()
+      });
+    } catch (error) {
+      console.error('Error fetching completed workouts:', error);
+      throw error;
+    }
+  },
+  
+  async createCompletedWorkout(data) {
+    try {
+      console.log('Creating completed workout with data:', data);
+      
+      // Create a deep copy to avoid modifying the original data
+      const workoutData = JSON.parse(JSON.stringify(data));
+      
+      // Ensure exercises have proper structure
+      if (workoutData.exercises) {
+        workoutData.exercises = workoutData.exercises.map(exercise => {
+          // Make sure sets is an array
+          if (!Array.isArray(exercise.sets)) {
+            exercise.sets = [];
+          }
+          return exercise;
+        });
+      }
+      
+      return await request('/api/completed-workouts', {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(workoutData)
+      });
+    } catch (error) {
+      console.error('Error creating completed workout:', error);
+      throw error;
+    }
+  },
+  
+  async getCompletedWorkoutById(id) {
+    return request(`/api/completed-workouts/${id}`, {
+      method: 'GET',
+      headers: this.getHeaders()
+    });
+  },
+  
+  async updateCompletedWorkout(id, data) {
+    return request(`/api/completed-workouts/${id}`, {
+      method: "PATCH",
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
+    });
+  },
+  
+  async deleteCompletedWorkout(id) {
+    return request(`/api/completed-workouts/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders()
+    });
+  },
+  
   // Users
-  getUsers: (params) => api.get('/api/users', { params }),
-  getUserById: (id) => api.get(`/api/users/${id}`),
-  createUser: (data) => api.post('/api/users', data),
-  updateUser: (id, data) => api.put(`/api/users/${id}`, data),
-  retireUser: (id) => api.delete(`/api/users/${id}`),
-  hardDeleteUser: (id) => api.delete(`/api/users/${id}/permanent`),
-  restoreUser: (id) => api.patch(`/api/users/${id}/restore`),
+  async getUsers(params) {
+    const queryParams = params ? `?${new URLSearchParams(params)}` : '';
+    return request(`/api/users${queryParams}`, {
+      method: 'GET',
+      headers: this.getHeaders()
+    });
+  },
+  
+  async getUserById(id) {
+    return request(`/api/users/${id}`, {
+      method: 'GET',
+      headers: this.getHeaders()
+    });
+  },
+  
+  async createUser(data) {
+    return request('/api/users', {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
+    });
+  },
+  
+  async updateUser(id, data) {
+    return request(`/api/users/${id}`, {
+      method: "PUT",
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
+    });
+  },
+  
+  async retireUser(id) {
+    return request(`/api/users/${id}/retire`, {
+      method: "PATCH",
+      headers: this.getHeaders()
+    });
+  },
+  
+  async hardDeleteUser(id) {
+    return request(`/api/users/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders()
+    });
+  },
+  
+  async restoreUser(id) {
+    return request(`/api/users/${id}/restore`, {
+      method: 'PATCH',
+      headers: this.getHeaders()
+    });
+  }
 };
+
+// Initialize auth token from localStorage if available
+const storedToken = localStorage.getItem('token');
+if (storedToken) {
+  apiService.setAuthToken(storedToken);
+}
 
 export default apiService;

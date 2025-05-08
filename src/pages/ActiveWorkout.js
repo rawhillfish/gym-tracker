@@ -18,7 +18,11 @@ import {
   Snackbar,
   Alert,
   IconButton,
-  Tooltip
+  Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import WorkoutTimer from '../components/WorkoutTimer';
@@ -128,69 +132,121 @@ const ActiveWorkout = () => {
     // Fetch workout templates
     apiService.getWorkoutTemplates()
       .then(response => {
-        if (response.data && response.data.length > 0) {
+        if (response && Array.isArray(response)) {
+          console.log('Workout templates response:', response);
+          
+          // Filter out templates that don't have exercises
+          const validTemplates = response.filter(template => 
+            template.exercises && Array.isArray(template.exercises) && template.exercises.length > 0
+          );
+          
+          console.log(`Found ${validTemplates.length} valid workout templates`);
+          
           // Sort templates by name
-          const sortedTemplates = [...response.data].sort((a, b) => a.name.localeCompare(b.name));
+          const sortedTemplates = [...validTemplates].sort((a, b) => 
+            a.name.localeCompare(b.name)
+          );
+          
           setWorkoutTemplates(sortedTemplates);
+          
+          // Save to localStorage as backup
+          localStorage.setItem('workoutTemplates', JSON.stringify(sortedTemplates));
         } else {
-          // Fallback to localStorage if no templates in MongoDB
+          console.error('Invalid response format from getWorkoutTemplates:', response);
+          setWorkoutTemplates([]);
+          
+          // Try to load from localStorage as fallback
           const savedTemplates = localStorage.getItem('workoutTemplates');
           if (savedTemplates) {
-            const parsedTemplates = JSON.parse(savedTemplates);
-            // Sort templates by name
-            const sortedTemplates = [...parsedTemplates].sort((a, b) => a.name.localeCompare(b.name));
-            setWorkoutTemplates(sortedTemplates);
+            try {
+              const parsedTemplates = JSON.parse(savedTemplates);
+              setWorkoutTemplates(parsedTemplates);
+            } catch (err) {
+              console.error('Error parsing templates from localStorage:', err);
+            }
           }
         }
       })
       .catch(err => {
         console.error('Error fetching workout templates:', err);
-        // Fallback to localStorage
+        setWorkoutTemplates([]);
+        
+        // Try to load from localStorage as fallback
         const savedTemplates = localStorage.getItem('workoutTemplates');
         if (savedTemplates) {
-          const parsedTemplates = JSON.parse(savedTemplates);
-          // Sort templates by name
-          const sortedTemplates = [...parsedTemplates].sort((a, b) => a.name.localeCompare(b.name));
-          setWorkoutTemplates(sortedTemplates);
+          try {
+            const parsedTemplates = JSON.parse(savedTemplates);
+            setWorkoutTemplates(parsedTemplates);
+          } catch (err) {
+            console.error('Error parsing templates from localStorage:', err);
+          }
         }
       });
 
     // Fetch users
     apiService.getUsers()
-      .then(response => setUsers(response.data))
-      .catch(err => console.error('Error fetching users:', err));
+      .then(response => {
+        // Handle different response formats
+        let usersData = [];
+        if (Array.isArray(response)) {
+          usersData = response;
+        } else if (response && response.data && Array.isArray(response.data)) {
+          usersData = response.data;
+        }
+        
+        // Filter out retired or deleted users
+        const activeUsers = usersData.filter(user => !user.retired && !user.isDeleted);
+        console.log(`Found ${activeUsers.length} active users out of ${usersData.length} total users`);
+        setUsers(activeUsers);
+      })
+      .catch(err => {
+        console.error('Error fetching users:', err);
+        setUsers([]);
+      });
       
     // Fetch exercises
     apiService.getExercises()
       .then(response => {
-        setExerciseList(response.data);
-        // If no exercises exist in the database, create default ones
-        if (response.data.length === 0) {
-          const defaultExercises = [
-            { name: 'Bench Press', defaultReps: 8, category: 'Chest' },
-            { name: 'Squat', defaultReps: 8, category: 'Legs' },
-            { name: 'Deadlift', defaultReps: 8, category: 'Back' },
-            { name: 'Shoulder Press', defaultReps: 8, category: 'Shoulders' },
-            { name: 'Barbell Row', defaultReps: 8, category: 'Back' },
-            { name: 'Pull Ups', defaultReps: 8, category: 'Back' },
-            { name: 'Dips', defaultReps: 8, category: 'Chest' },
-            { name: 'Bicep Curls', defaultReps: 12, category: 'Arms' },
-            { name: 'Tricep Extensions', defaultReps: 12, category: 'Arms' },
-            { name: 'Leg Press', defaultReps: 12, category: 'Legs' },
-            { name: 'Calf Raises', defaultReps: 15, category: 'Legs' },
-            { name: 'Lateral Raises', defaultReps: 15, category: 'Shoulders' },
-            { name: 'Face Pulls', defaultReps: 15, category: 'Shoulders' },
-          ];
-          
-          apiService.createExercisesBulk(defaultExercises)
-            .then(response => {
-              setExerciseList(response.data);
-              console.log('Default exercises created:', response.data);
-            })
-            .catch(err => console.error('Error creating default exercises:', err));
+        if (response && response.data) {
+          setExerciseList(response.data);
+          // If no exercises exist in the database, create default ones
+          if (response.data.length === 0) {
+            const defaultExercises = [
+              { name: 'Bench Press', defaultReps: 8, category: 'Chest' },
+              { name: 'Squat', defaultReps: 8, category: 'Legs' },
+              { name: 'Deadlift', defaultReps: 8, category: 'Back' },
+              { name: 'Shoulder Press', defaultReps: 8, category: 'Shoulders' },
+              { name: 'Barbell Row', defaultReps: 8, category: 'Back' },
+              { name: 'Pull Ups', defaultReps: 8, category: 'Back' },
+              { name: 'Dips', defaultReps: 8, category: 'Chest' },
+              { name: 'Bicep Curls', defaultReps: 12, category: 'Arms' },
+              { name: 'Tricep Extensions', defaultReps: 12, category: 'Arms' },
+              { name: 'Leg Press', defaultReps: 12, category: 'Legs' },
+              { name: 'Calf Raises', defaultReps: 15, category: 'Legs' },
+              { name: 'Lateral Raises', defaultReps: 15, category: 'Shoulders' },
+              { name: 'Face Pulls', defaultReps: 15, category: 'Shoulders' },
+            ];
+            
+            apiService.createExercisesBulk(defaultExercises)
+              .then(response => {
+                if (response && response.data) {
+                  setExerciseList(response.data);
+                  console.log('Default exercises created:', response.data);
+                } else {
+                  console.error('Invalid response format from createExercisesBulk:', response);
+                }
+              })
+              .catch(err => console.error('Error creating default exercises:', err));
+          }
+        } else {
+          console.error('Invalid response format from getExercises:', response);
+          setExerciseList([]);
         }
       })
-      .catch(err => console.error('Error fetching exercises:', err));
+      .catch(err => {
+        console.error('Error fetching exercises:', err);
+        setExerciseList([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -869,28 +925,45 @@ const ActiveWorkout = () => {
   };
 
   // Function to add a new exercise to a workout
-  const addExercise = (workoutIndex) => {
-    if (!selectedExercise) return;
+  const addExerciseToWorkout = () => {
+    if (!selectedExercise || addExerciseDialog === false) {
+      setAddExerciseDialog(false);
+      return;
+    }
     
-    const exercise = exerciseList.find(e => e._id === selectedExercise);
-    if (!exercise) return;
-
-    const updatedWorkouts = [...activeWorkouts];
-    const newExercise = {
-      _id: exercise._id,
+    const workoutIndex = addExerciseDialog;
+    const exercise = exerciseList && exerciseList.find(ex => ex._id === selectedExercise);
+    
+    if (!exercise) {
+      console.error('Selected exercise not found:', selectedExercise);
+      setAddExerciseDialog(false);
+      return;
+    }
+    
+    const newWorkouts = [...activeWorkouts];
+    const workout = newWorkouts[workoutIndex];
+    
+    if (!workout) {
+      console.error('Workout not found at index:', workoutIndex);
+      setAddExerciseDialog(false);
+      return;
+    }
+    
+    // Add the exercise to the workout
+    workout.exercises.push({
+      exerciseId: exercise._id,
       name: exercise.name,
       category: exercise.category,
       sets: [{
-        weight: '',
-        reps: exercise.defaultReps,
+        reps: exercise.defaultReps || 8,
+        weight: 0,
         completed: false
       }]
-    };
-
-    updatedWorkouts[workoutIndex].exercises.push(newExercise);
-    setActiveWorkouts(updatedWorkouts);
-    setSelectedExercise('');
+    });
+    
+    setActiveWorkouts(newWorkouts);
     setAddExerciseDialog(false);
+    setSelectedExercise('');
   };
 
   // Function to remove an exercise from a workout
@@ -1178,7 +1251,7 @@ const ActiveWorkout = () => {
           Active Workout
         </Typography>
         <Paper elevation={2} sx={{ p: 3, textAlign: 'center' }}>
-          {users.length > 0 ? (
+          {users && users.length > 0 ? (
             <Button
               variant="contained"
               color="primary"
@@ -1198,7 +1271,7 @@ const ActiveWorkout = () => {
           <DialogTitle>Select Users (Max 2)</DialogTitle>
           <DialogContent>
             <List sx={{ minWidth: 360 }}>
-              {users.map((user) => (
+              {users && users.map((user) => (
                 <ListItem
                   key={user._id}
                   button
@@ -1247,6 +1320,23 @@ const ActiveWorkout = () => {
                 <CircularProgress size={40} sx={{ mb: 2 }} />
                 <Typography variant="body1">Loading previous workout data...</Typography>
               </Box>
+            ) : workoutTemplates.length === 0 ? (
+              <Box sx={{ py: 2, textAlign: 'center' }}>
+                <Typography variant="body1" color="text.secondary">
+                  No workout templates found. Please create a template first.
+                </Typography>
+                <Button 
+                  variant="contained" 
+                  color="primary" 
+                  sx={{ mt: 2 }}
+                  onClick={() => {
+                    setOpenTemplateDialog(false);
+                    navigate('/workout-builder');
+                  }}
+                >
+                  Create Template
+                </Button>
+              </Box>
             ) : (
               <List sx={{ minWidth: 360 }}>
                 {workoutTemplates.map((template) => (
@@ -1257,7 +1347,7 @@ const ActiveWorkout = () => {
                   >
                     <ListItemText
                       primary={template.name}
-                      secondary={`${template.exercises.length} exercises`}
+                      secondary={`${template.exercises?.length || 0} exercises`}
                     />
                   </ListItem>
                 ))}
@@ -1271,6 +1361,11 @@ const ActiveWorkout = () => {
       </Container>
     );
   }
+
+  const openAddExerciseDialog = (workoutIndex) => {
+    setSelectedExercise('');
+    setAddExerciseDialog(workoutIndex);
+  };
 
   return (
     <Container maxWidth="xl">
@@ -1354,7 +1449,7 @@ const ActiveWorkout = () => {
               <Button
                 variant="outlined"
                 size="small"
-                onClick={() => setAddExerciseDialog(workoutIndex)}
+                onClick={() => openAddExerciseDialog(workoutIndex)}
               >
                 Add Exercise
               </Button>
@@ -1375,7 +1470,7 @@ const ActiveWorkout = () => {
                 variant="outlined"
                 color="primary"
                 size="medium"
-                onClick={() => setAddExerciseDialog(workoutIndex)}
+                onClick={() => openAddExerciseDialog(workoutIndex)}
                 sx={{ minWidth: '200px', mb: 2 }}
               >
                 Add Exercise
@@ -1427,27 +1522,27 @@ const ActiveWorkout = () => {
       <Dialog open={addExerciseDialog !== false} onClose={() => setAddExerciseDialog(false)}>
         <DialogTitle>Add Exercise</DialogTitle>
         <DialogContent>
-          <List>
-            {exerciseList.map((exercise) => (
-              <ListItem key={exercise._id}>
-                <ListItemText 
-                  primary={exercise.name}
-                  secondary={`Default: ${exercise.defaultReps} reps | ${exercise.category}`}
-                />
-                <Button
-                  variant={selectedExercise === exercise._id ? "contained" : "outlined"}
-                  onClick={() => setSelectedExercise(exercise._id)}
-                >
-                  {selectedExercise === exercise._id ? "Selected" : "Select"}
-                </Button>
-              </ListItem>
-            ))}
-          </List>
+          <FormControl fullWidth sx={{ mt: 1 }}>
+            <InputLabel id="exercise-select-label">Exercise</InputLabel>
+            <Select
+              labelId="exercise-select-label"
+              id="exercise-select"
+              value={selectedExercise}
+              label="Exercise"
+              onChange={(e) => setSelectedExercise(e.target.value)}
+            >
+              {exerciseList && exerciseList.map((exercise) => (
+                <MenuItem key={exercise._id} value={exercise._id}>
+                  {exercise.name} ({exercise.category})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddExerciseDialog(false)}>Cancel</Button>
           <Button 
-            onClick={() => addExercise(addExerciseDialog)} 
+            onClick={() => addExerciseToWorkout()} 
             variant="contained" 
             color="primary"
             disabled={!selectedExercise}
