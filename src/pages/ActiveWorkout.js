@@ -698,7 +698,7 @@ const ActiveWorkout = () => {
       
       // Navigate away if no workouts left
       if (remainingWorkouts.length === 0) {
-        navigate('/');
+        navigate('/dashboard');
       }
     } finally {
       // Close dialog if open

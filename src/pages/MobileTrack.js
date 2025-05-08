@@ -25,7 +25,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  ListSubheader
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import WorkoutTimer from '../components/WorkoutTimer';
@@ -726,7 +727,8 @@ const MobileTrack = () => {
                             
                             <TextField
                               size="small"
-                              label="Weight"
+                              label="Wt"
+                              placeholder="0"
                               variant="outlined"
                               value={set.weight}
                               onChange={(e) => {
@@ -751,7 +753,9 @@ const MobileTrack = () => {
                                 }
                               }}
                               InputProps={{
-                                endAdornment: <Typography variant="caption">kg</Typography>
+                                endAdornment: <Typography variant="caption">kg</Typography>,
+                                type: "number",
+                                inputProps: { min: 0, step: 2.5 }
                               }}
                             />
                             
@@ -777,6 +781,10 @@ const MobileTrack = () => {
                                 '& .MuiInputLabel-shrink': {
                                   transform: 'translate(14px, -6px) scale(0.75)'
                                 }
+                              }}
+                              InputProps={{
+                                type: "number",
+                                inputProps: { min: 0, step: 1 }
                               }}
                             />
                             
@@ -1111,11 +1119,34 @@ const MobileTrack = () => {
                 label="Exercise"
                 onChange={(e) => setSelectedExercise(e.target.value)}
               >
-                {exerciseList && exerciseList.map((exercise) => (
-                  <MenuItem key={exercise._id} value={exercise._id}>
-                    {exercise.name} {exercise.category ? `(${exercise.category})` : ''}
-                  </MenuItem>
-                ))}
+                {exerciseList && (() => {
+                  // Group exercises by category
+                  const exercisesByCategory = {};
+                  
+                  // Add exercises to their categories
+                  exerciseList.forEach(exercise => {
+                    const category = exercise.category || 'Uncategorized';
+                    if (!exercisesByCategory[category]) {
+                      exercisesByCategory[category] = [];
+                    }
+                    exercisesByCategory[category].push(exercise);
+                  });
+                  
+                  // Sort categories alphabetically
+                  const sortedCategories = Object.keys(exercisesByCategory).sort();
+                  
+                  // Create menu items grouped by category
+                  return sortedCategories.map(category => [
+                    <ListSubheader key={`category-${category}`}>
+                      {category}
+                    </ListSubheader>,
+                    ...exercisesByCategory[category].map(exercise => (
+                      <MenuItem key={exercise._id} value={exercise._id}>
+                        {exercise.name}
+                      </MenuItem>
+                    ))
+                  ]);
+                })()}
               </Select>
             </FormControl>
           </DialogContent>

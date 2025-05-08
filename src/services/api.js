@@ -454,7 +454,7 @@ const apiService = {
   
   async updateCompletedWorkout(id, data) {
     return request(`/api/completed-workouts/${id}`, {
-      method: "PATCH",
+      method: "PUT",
       headers: this.getHeaders(),
       body: JSON.stringify(data)
     });

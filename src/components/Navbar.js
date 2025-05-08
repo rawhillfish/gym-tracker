@@ -14,7 +14,8 @@ import {
 } from '@mui/material';
 import { 
   Link as RouterLink, 
-  useNavigate 
+  useNavigate,
+  useLocation
 } from 'react-router-dom';
 import { 
   AccountCircle, 
@@ -28,8 +29,12 @@ import { useAuth } from '../contexts/AuthContext';
 const Navbar = () => {
   const { currentUser, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
+  
+  // Check if we're on the landing page
+  const isLandingPage = location.pathname === '/' || location.pathname === '' || location.pathname === '/landing';
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -57,12 +62,17 @@ const Navbar = () => {
           Gym Tracker
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Button color="inherit" component={RouterLink} to="/active">
-            Track Workout
-          </Button>
-          <Button color="inherit" component={RouterLink} to="/history">
-            History
-          </Button>
+          {/* Only show Track Workout and History tabs when not on landing page */}
+          {!isLandingPage && (
+            <>
+              <Button color="inherit" component={RouterLink} to="/active">
+                Track Workout
+              </Button>
+              <Button color="inherit" component={RouterLink} to="/history">
+                History
+              </Button>
+            </>
+          )}
           {isAuthenticated && (
             <>
               <Button color="inherit" component={RouterLink} to="/mobile">

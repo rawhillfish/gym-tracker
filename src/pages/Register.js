@@ -46,8 +46,8 @@ const Register = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Get the redirect path from location state or default to home page
-  const from = location.state?.from?.pathname || '/';
+  // Get the redirect path from location state or default to dashboard
+  const from = location.state?.from?.pathname || '/dashboard';
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -118,8 +118,8 @@ const Register = () => {
         formData.color
       );
       
-      // Redirect to the page the user was trying to access, or home if none
-      navigate(from, { replace: true });
+      // Redirect to the dashboard after successful registration
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       setSubmissionError(error.message || 'Registration failed. Please try again.');
     } finally {

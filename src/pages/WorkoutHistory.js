@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import apiService from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Container,
   Typography,
@@ -41,13 +42,17 @@ import {
   ListItem,
   LinearProgress,
   FormControlLabel,
-  Avatar
+  Avatar,
+  ListSubheader
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
+import AddIcon from '@mui/icons-material/Add';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import CloseIcon from '@mui/icons-material/Close';
 import DatePicker from 'react-datepicker';
@@ -70,7 +75,387 @@ import {
   ReferenceDot
 } from 'recharts';
 
+const EditWorkoutForm = ({ workout, onSave, onCancel }) => {
+  const [formState, setFormState] = useState({
+    ...workout, // Keep all original properties
+    templateName: workout.templateName,
+    exercises: workout.exercises.map(exercise => ({
+      ...exercise,
+      sets: exercise.sets.map(set => ({ ...set }))
+    }))
+  });
+  const [availableExercises, setAvailableExercises] = useState([]);
+  const [newExerciseName, setNewExerciseName] = useState('');
+  const [showAddExerciseForm, setShowAddExerciseForm] = useState(false);
+
+  // Fetch available exercises for adding new ones
+  useEffect(() => {
+    const fetchExercises = async () => {
+      try {
+        const exercises = await apiService.getExercises();
+        setAvailableExercises(exercises);
+      } catch (error) {
+        console.error('Error fetching exercises:', error);
+      }
+    };
+    fetchExercises();
+  }, []);
+
+  // Group exercises by category
+  const exercisesByCategory = useMemo(() => {
+    const grouped = {};
+    
+    availableExercises.forEach(exercise => {
+      const category = exercise.category || 'Uncategorized';
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(exercise);
+    });
+    
+    // Sort categories alphabetically
+    return Object.keys(grouped)
+      .sort()
+      .reduce((acc, category) => {
+        acc[category] = grouped[category].sort((a, b) => 
+          a.name.localeCompare(b.name)
+        );
+        return acc;
+      }, {});
+  }, [availableExercises]);
+
+  // Handle input changes efficiently
+  const handleInputChange = (exerciseIndex, setIndex, field, value) => {
+    setFormState(prev => {
+      const newState = { ...prev };
+      newState.exercises[exerciseIndex].sets[setIndex][field] = value;
+      return newState;
+    });
+  };
+
+  // Toggle set completion
+  const handleToggleCompletion = (exerciseIndex, setIndex) => {
+    setFormState(prev => {
+      const newState = { ...prev };
+      newState.exercises[exerciseIndex].sets[setIndex].completed = 
+        !newState.exercises[exerciseIndex].sets[setIndex].completed;
+      return newState;
+    });
+  };
+
+  // Add a new set to an exercise
+  const handleAddSet = (exerciseIndex) => {
+    setFormState(prev => {
+      const newState = { ...prev };
+      newState.exercises[exerciseIndex].sets.push({
+        weight: 0,
+        reps: 0,
+        completed: true,
+        id: Date.now()
+      });
+      return newState;
+    });
+  };
+
+  // Remove a set from an exercise
+  const handleRemoveSet = (exerciseIndex, setIndex) => {
+    setFormState(prev => {
+      const newState = { ...prev };
+      newState.exercises[exerciseIndex].sets.splice(setIndex, 1);
+      return newState;
+    });
+  };
+
+  // Update workout name
+  const handleNameChange = (e) => {
+    setFormState(prev => ({
+      ...prev,
+      templateName: e.target.value
+    }));
+  };
+
+  // Remove an exercise
+  const handleRemoveExercise = (exerciseIndex) => {
+    setFormState(prev => {
+      const newState = { ...prev };
+      newState.exercises.splice(exerciseIndex, 1);
+      return newState;
+    });
+  };
+
+  // Move exercise up in order
+  const handleMoveExerciseUp = (exerciseIndex) => {
+    if (exerciseIndex === 0) return; // Already at the top
+    
+    setFormState(prev => {
+      const newState = { ...prev };
+      const temp = newState.exercises[exerciseIndex];
+      newState.exercises[exerciseIndex] = newState.exercises[exerciseIndex - 1];
+      newState.exercises[exerciseIndex - 1] = temp;
+      return newState;
+    });
+  };
+
+  // Move exercise down in order
+  const handleMoveExerciseDown = (exerciseIndex) => {
+    setFormState(prev => {
+      if (exerciseIndex === prev.exercises.length - 1) return prev; // Already at the bottom
+      
+      const newState = { ...prev };
+      const temp = newState.exercises[exerciseIndex];
+      newState.exercises[exerciseIndex] = newState.exercises[exerciseIndex + 1];
+      newState.exercises[exerciseIndex + 1] = temp;
+      return newState;
+    });
+  };
+
+  // Add a new exercise from the available exercises
+  const handleAddExercise = () => {
+    if (!newExerciseName) return;
+    
+    const selectedExercise = availableExercises.find(ex => ex.name === newExerciseName);
+    if (!selectedExercise) return;
+    
+    setFormState(prev => {
+      const newState = { ...prev };
+      newState.exercises.push({
+        name: selectedExercise.name,
+        id: Date.now().toString(),
+        sets: [{
+          weight: 0,
+          reps: 0,
+          completed: true,
+          id: Date.now() + 1
+        }]
+      });
+      return newState;
+    });
+    
+    setNewExerciseName('');
+    setShowAddExerciseForm(false);
+  };
+
+  // Save changes
+  const handleSave = () => {
+    onSave(formState);
+  };
+
+  return (
+    <>
+      <DialogTitle>
+        Edit Workout
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ mt: 2 }}>
+          <TextField
+            fullWidth
+            label="Workout Name"
+            value={formState.templateName}
+            onChange={handleNameChange}
+            sx={{ mb: 3 }}
+          />
+          
+          {formState.exercises.map((exercise, exerciseIndex) => (
+            <Box key={exercise.id || exerciseIndex} sx={{ mb: 4, position: 'relative' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                  {exercise.name}
+                </Typography>
+                <Box>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => handleMoveExerciseUp(exerciseIndex)}
+                    disabled={exerciseIndex === 0}
+                  >
+                    <ArrowUpwardIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => handleMoveExerciseDown(exerciseIndex)}
+                    disabled={exerciseIndex === formState.exercises.length - 1}
+                  >
+                    <ArrowDownwardIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton 
+                    size="small" 
+                    color="error" 
+                    onClick={() => handleRemoveExercise(exerciseIndex)}
+                    disabled={formState.exercises.length <= 1}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
+              
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Set</TableCell>
+                      <TableCell align="right">Weight (kg)</TableCell>
+                      <TableCell align="right">Reps</TableCell>
+                      <TableCell align="right">Completed</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {exercise.sets.map((set, setIndex) => (
+                      <TableRow 
+                        key={set.id || setIndex}
+                        sx={{
+                          backgroundColor: set.completed ? 'inherit' : 'action.hover',
+                          opacity: set.completed ? 1 : 0.7
+                        }}
+                      >
+                        <TableCell>{setIndex + 1}</TableCell>
+                        <TableCell align="right">
+                          <TextField
+                            type="number"
+                            value={set.weight}
+                            onChange={(e) => handleInputChange(
+                              exerciseIndex, 
+                              setIndex, 
+                              'weight', 
+                              Number(e.target.value)
+                            )}
+                            size="small"
+                            inputProps={{ 
+                              style: { textAlign: 'right' },
+                              min: 0,
+                              max: 1000,
+                              step: 2.5
+                            }}
+                            sx={{ width: '80px' }}
+                            disabled={!set.completed}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <TextField
+                            type="number"
+                            value={set.reps}
+                            onChange={(e) => handleInputChange(
+                              exerciseIndex, 
+                              setIndex, 
+                              'reps', 
+                              Number(e.target.value)
+                            )}
+                            size="small"
+                            inputProps={{ 
+                              style: { textAlign: 'right' },
+                              min: 0,
+                              max: 100,
+                              step: 1
+                            }}
+                            sx={{ width: '70px' }}
+                            disabled={!set.completed}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Checkbox
+                            checked={set.completed}
+                            onChange={() => handleToggleCompletion(exerciseIndex, setIndex)}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleRemoveSet(exerciseIndex, setIndex)}
+                            disabled={exercise.sets.length <= 1}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => handleAddSet(exerciseIndex)}
+                sx={{ mt: 1 }}
+              >
+                Add Set
+              </Button>
+            </Box>
+          ))}
+          
+          {showAddExerciseForm ? (
+            <Box sx={{ mt: 2, mb: 2, p: 2, border: '1px dashed #ccc', borderRadius: 1 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Add New Exercise
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id="new-exercise-label">Exercise</InputLabel>
+                <Select
+                  labelId="new-exercise-label"
+                  value={newExerciseName}
+                  onChange={(e) => setNewExerciseName(e.target.value)}
+                  label="Exercise"
+                >
+                  {Object.entries(exercisesByCategory).map(([category, exercises]) => [
+                    <ListSubheader key={category} sx={{ fontWeight: 'bold', bgcolor: 'background.paper' }}>
+                      {category}
+                    </ListSubheader>,
+                    ...exercises.map((exercise) => (
+                      <MenuItem 
+                        key={exercise._id} 
+                        value={exercise.name}
+                        sx={{ pl: 4 }} // Indent exercises under category
+                      >
+                        {exercise.name}
+                      </MenuItem>
+                    ))
+                  ]).flat()}
+                </Select>
+              </FormControl>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button 
+                  onClick={() => setShowAddExerciseForm(false)} 
+                  color="inherit"
+                  sx={{ mr: 1 }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleAddExercise} 
+                  variant="contained" 
+                  color="primary"
+                  disabled={!newExerciseName}
+                >
+                  Add
+                </Button>
+              </Box>
+            </Box>
+          ) : (
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => setShowAddExerciseForm(true)}
+              sx={{ mt: 2 }}
+            >
+              Add Exercise
+            </Button>
+          )}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCancel} color="inherit">
+          Cancel
+        </Button>
+        <Button onClick={handleSave} variant="contained" color="primary">
+          Save Changes
+        </Button>
+      </DialogActions>
+    </>
+  );
+};
+
 const WorkoutHistory = () => {
+  const { currentUser } = useAuth();
   const [selectedDate, setSelectedDate] = useState(null);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
@@ -152,6 +537,7 @@ const WorkoutHistory = () => {
   }, [showRetiredUsers, users]);
   const fetchWorkouts = async () => {
     try {
+      setLoading(true);
       const response = await apiService.getCompletedWorkouts();
       
       // Handle different response formats
@@ -183,6 +569,8 @@ const WorkoutHistory = () => {
       setWorkoutHistory(fetchedWorkouts);
     } catch (error) {
       console.error("Error fetching workouts:", error);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -268,25 +656,33 @@ const WorkoutHistory = () => {
   };
 
   const handleEditClick = (workout) => {
-    setEditWorkout(JSON.parse(JSON.stringify(workout))); // Deep copy
+    setEditWorkout(workout);
     setEditDialogOpen(true);
   };
 
   const handleEditClose = () => {
-    setEditWorkout(null);
     setEditDialogOpen(false);
+    setEditWorkout(null);
   };
 
-  const handleEditSave = async () => {
+  const handleSaveEdit = async (updatedWorkout) => {
     try {
-      const response = await apiService.updateCompletedWorkout(editWorkout._id, editWorkout);
-      const updatedWorkout = response.data;
-      const updatedHistory = workoutHistory.map(workout =>
-        workout._id === editWorkout._id ? updatedWorkout : workout
+      setLoading(true);
+      console.log('Saving workout update:', updatedWorkout._id);
+      console.log('Updated workout data:', JSON.stringify(updatedWorkout, null, 2));
+      
+      const response = await apiService.updateCompletedWorkout(updatedWorkout._id, updatedWorkout);
+      console.log('Update response:', response);
+      
+      // Update the workout in the local state
+      setWorkoutHistory(prevWorkouts => 
+        prevWorkouts.map(w => 
+          w._id === updatedWorkout._id ? updatedWorkout : w
+        )
       );
       
-      setWorkoutHistory(updatedHistory);
-      handleEditClose();
+      setEditDialogOpen(false);
+      setEditWorkout(null);
       
       setSnackbar({
         open: true,
@@ -295,44 +691,16 @@ const WorkoutHistory = () => {
       });
     } catch (error) {
       console.error('Error updating workout:', error);
+      console.error('Error details:', error.response || error.message || error);
       
       setSnackbar({
         open: true,
-        message: `Error updating workout: ${error.message}`,
+        message: `Error updating workout: ${error.message || 'Unknown error'}`,
         severity: 'error'
       });
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const handleSetChange = (exerciseIndex, setIndex, field, value) => {
-    const updatedWorkout = { ...editWorkout };
-    updatedWorkout.exercises[exerciseIndex].sets[setIndex][field] = value;
-    setEditWorkout(updatedWorkout);
-  };
-
-  const handleAddSet = (exerciseIndex) => {
-    const updatedWorkout = { ...editWorkout };
-    const newSet = {
-      weight: 0,
-      reps: 0,
-      completed: true,
-      id: Date.now() // Add a unique ID for the new set
-    };
-    updatedWorkout.exercises[exerciseIndex].sets.push(newSet);
-    setEditWorkout(updatedWorkout);
-  };
-
-  const handleRemoveSet = (exerciseIndex, setIndex) => {
-    const updatedWorkout = { ...editWorkout };
-    updatedWorkout.exercises[exerciseIndex].sets.splice(setIndex, 1);
-    setEditWorkout(updatedWorkout);
-  };
-
-  const handleToggleSetCompletion = (exerciseIndex, setIndex) => {
-    const updatedWorkout = { ...editWorkout };
-    updatedWorkout.exercises[exerciseIndex].sets[setIndex].completed = 
-      !updatedWorkout.exercises[exerciseIndex].sets[setIndex].completed;
-    setEditWorkout(updatedWorkout);
   };
 
   const calculateTotalVolume = (exercises) => {
@@ -347,221 +715,188 @@ const WorkoutHistory = () => {
     }, 0);
   };
 
-  // Get unique exercises from all workouts
-  const uniqueExercises = useMemo(() => {
-    const exercises = new Set();
-    workoutHistory.forEach(workout => {
-      workout.exercises.forEach(exercise => {
-        exercises.add(exercise.name);
-      });
-    });
-    return ['all', ...Array.from(exercises)];
-  }, [workoutHistory]);
-
-  // Filter workouts based on search, date range, and selected exercise
+  // Memoize the filtered workouts to avoid recalculating on every render
   const filteredWorkouts = useMemo(() => {
+    if (!workoutHistory.length) return [];
+    
     return workoutHistory.filter(workout => {
-      const matchesDate = (!startDate || !endDate) ? true :
-        isWithinInterval(parseISO(workout.startTime), {
-          start: startDate,
-          end: new Date(endDate.getTime() + 86400000) // Include end date by adding one day
-        });
-      const matchesExercise = selectedExercise === 'all' ? true :
-        workout.exercises.some(ex => ex.name === selectedExercise);
+      // Filter by user
+      if (selectedUsers.length > 0) {
+        const workoutUserId = workout.user?._id || workout.userId;
+        if (!workoutUserId || !selectedUsers.includes(workoutUserId)) {
+          return false;
+        }
+      }
       
-      return matchesDate && matchesExercise;
+      // Filter by date range
+      if (startDate && endDate) {
+        const workoutDate = new Date(workout.startTime);
+        if (!isWithinInterval(workoutDate, { start: startDate, end: endDate })) {
+          return false;
+        }
+      } else if (selectedDate) {
+        const workoutDate = new Date(workout.startTime);
+        if (!isSameDay(workoutDate, selectedDate)) {
+          return false;
+        }
+      }
+      
+      // Filter by exercise
+      if (selectedExercise !== 'all') {
+        const hasExercise = workout.exercises.some(exercise => 
+          exercise.name === selectedExercise
+        );
+        if (!hasExercise) {
+          return false;
+        }
+      }
+      
+      return true;
     });
-  }, [workoutHistory, startDate, endDate, selectedExercise]);
+  }, [workoutHistory, selectedUsers, startDate, endDate, selectedDate, selectedExercise]);
 
-  // Prepare chart data
+  // Memoize chart data to avoid recalculating on every render
   const chartData = useMemo(() => {
-    // Group workouts by date
-    const dataByDate = new Map();
+    if (!filteredWorkouts.length) return [];
+    
+    const dataMap = new Map();
     
     filteredWorkouts.forEach(workout => {
-      const date = format(parseISO(workout.startTime), 'MMM d');
+      const date = format(new Date(workout.startTime), 'yyyy-MM-dd');
       
-      if (!dataByDate.has(date)) {
-        dataByDate.set(date, {
+      if (!dataMap.has(date)) {
+        dataMap.set(date, {
           date,
           users: {}
         });
       }
       
-      const dataPoint = dataByDate.get(date);
-      const userId = workout.user?._id || 'unknown';
+      const dataPoint = dataMap.get(date);
+      const userId = workout.user?._id || workout.userId;
       
-      if (!dataPoint.users[userId]) {
-        dataPoint.users[userId] = {
-          userId,
-          name: workout.user?.name || 'Unknown User',
-          color: workout.user?.color || '#888888',
-          value: 0,
-          detailedBreakdown: []
-        };
-      }
-      
-      let value = 0;
-      const detailedBreakdown = [];
-      
-      if (selectedExercise !== 'all') {
-        const exercise = workout.exercises.find(ex => ex.name === selectedExercise);
-        if (exercise) {
+      if (userId) {
+        if (!dataPoint.users[userId]) {
+          dataPoint.users[userId] = {
+            userId,
+            value: 0,
+            detailedBreakdown: []
+          };
+        }
+        
+        let value = 0;
+        const detailedBreakdown = [];
+        
+        if (selectedExercise !== 'all') {
+          const exercise = workout.exercises.find(ex => ex.name === selectedExercise);
+          if (exercise) {
+            if (chartMetric === 'volume') {
+              value = exercise.sets.reduce((total, set) => 
+                total + (set.completed ? set.weight * set.reps : 0), 0
+              );
+              
+              exercise.sets.filter(set => set.completed).forEach((set, setIndex) => {
+                detailedBreakdown.push({
+                  workoutName: workout.templateName,
+                  exerciseName: exercise.name,
+                  setNumber: setIndex + 1,
+                  weight: set.weight,
+                  reps: set.reps,
+                  volume: set.weight * set.reps
+                });
+              });
+            } else { // maxWeight
+              value = Math.max(...exercise.sets
+                .filter(set => set.completed)
+                .map(set => set.weight), 0
+              );
+            }
+          }
+        } else {
           if (chartMetric === 'volume') {
-            value = exercise.sets.reduce((total, set) => 
-              total + (set.completed ? set.weight * set.reps : 0), 0
-            );
+            value = calculateTotalVolume(workout.exercises);
             
-            // Add detailed breakdown
-            exercise.sets.filter(set => set.completed).forEach((set, setIndex) => {
-              detailedBreakdown.push({
-                workoutName: workout.templateName,
-                exerciseName: exercise.name,
-                setNumber: setIndex + 1,
-                weight: set.weight,
-                reps: set.reps,
-                volume: set.weight * set.reps
+            workout.exercises.forEach(exercise => {
+              exercise.sets.filter(set => set.completed).forEach((set, setIndex) => {
+                detailedBreakdown.push({
+                  workoutName: workout.templateName,
+                  exerciseName: exercise.name,
+                  setNumber: setIndex + 1,
+                  weight: set.weight,
+                  reps: set.reps,
+                  volume: set.weight * set.reps
+                });
               });
             });
           } else { // maxWeight
-            value = Math.max(...exercise.sets
-              .filter(set => set.completed)
-              .map(set => set.weight), 0
+            value = Math.max(
+              ...workout.exercises.flatMap(exercise => 
+                exercise.sets
+                  .filter(set => set.completed)
+                  .map(set => set.weight)
+              ),
+              0
             );
           }
         }
-      } else {
-        if (chartMetric === 'volume') {
-          value = calculateTotalVolume(workout.exercises);
-          
-          // Add detailed breakdown for all exercises
-          workout.exercises.forEach(exercise => {
-            exercise.sets.filter(set => set.completed).forEach((set, setIndex) => {
-              detailedBreakdown.push({
-                workoutName: workout.templateName,
-                exerciseName: exercise.name,
-                setNumber: setIndex + 1,
-                weight: set.weight,
-                reps: set.reps,
-                volume: set.weight * set.reps
-              });
-            });
-          });
-        } else { // maxWeight
-          const weights = workout.exercises.flatMap(ex =>
-            ex.sets.filter(set => set.completed).map(set => set.weight)
-          );
-          value = weights.length > 0 ? Math.max(...weights) : 0;
-        }
+        
+        dataPoint.users[userId].value += value;
+        dataPoint.users[userId].detailedBreakdown.push(...detailedBreakdown);
       }
-      
-      dataPoint.users[userId].value += value;
-      dataPoint.users[userId].detailedBreakdown.push(...detailedBreakdown);
     });
     
-    // Sort by date
-    return Array.from(dataByDate.values()).sort((a, b) => {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
-      return dateA - dateB;
-    });
+    return Array.from(dataMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [filteredWorkouts, selectedExercise, chartMetric]);
 
-  // Calculate workout statistics
-  const calculateWorkoutStats = useCallback(() => {
+  // Memoize workout stats to avoid recalculating on every render
+  const computedWorkoutStats = useMemo(() => {
+    if (!filteredWorkouts.length) {
+      return {
+        total: 0,
+        byTemplate: {},
+        byUser: {}
+      };
+    }
+    
     const stats = {
-      total: 0,
+      total: filteredWorkouts.length,
       byTemplate: {},
       byUser: {}
     };
-
-    console.log('Calculating workout stats with:', {
-      workoutHistory: workoutHistory.length,
-      selectedUsers,
-      startDate: startDate ? startDate.toISOString() : 'null',
-      endDate: endDate ? endDate.toISOString() : 'null'
-    });
-
-    // Use default date range if not set
-    const effectiveStartDate = startDate || new Date(0); // Jan 1, 1970
-    const effectiveEndDate = endDate || new Date(8640000000000000); // Max date
-
-    // Filter workouts by selected users and date range
-    const filteredWorkouts = workoutHistory.filter(workout => {
-      // Extract the date from the workout
-      let workoutDate;
-      if (workout.date) {
-        workoutDate = new Date(workout.date);
-      } else if (workout.startTime) {
-        workoutDate = new Date(workout.startTime);
-      } else {
-        console.log('Workout missing date:', workout);
-        return false;
-      }
-
-      // Check if the workout is in the date range
-      const isInDateRange = workoutDate >= effectiveStartDate && workoutDate <= effectiveEndDate;
-      
-      // Check if the workout is for a selected user
-      let isSelectedUser = false;
-      if (workout.userId) {
-        isSelectedUser = selectedUsers.includes(workout.userId);
-      } else if (workout.user && workout.user._id) {
-        isSelectedUser = selectedUsers.includes(workout.user._id);
-      }
-
-      console.log(`Workout ${workout._id}: date=${workoutDate.toISOString()}, inRange=${isInDateRange}, selectedUser=${isSelectedUser}`);
-      
-      return isInDateRange && isSelectedUser;
-    });
-
-    console.log('Filtered workouts:', filteredWorkouts.length);
-
+    
     filteredWorkouts.forEach(workout => {
-      // Increment total count
-      stats.total++;
-      
       // Count by template
       const templateName = workout.templateName || 'Unknown Template';
       stats.byTemplate[templateName] = (stats.byTemplate[templateName] || 0) + 1;
       
       // Count by user
-      const userId = workout.userId || (workout.user && workout.user._id);
-      if (!userId) {
-        console.log('Workout missing userId:', workout);
-        return;
-      }
-
-      if (!stats.byUser[userId]) {
-        // Find user in users array
-        const user = users.find(u => u._id === userId);
-        
-        // Use workout.user data if available and user not found in users array
-        const workoutUser = workout.user || {};
-        
-        stats.byUser[userId] = {
-          name: user ? user.name : (workoutUser.name || 'Unknown User'),
-          color: user ? user.color : (workoutUser.color || '#888888'),
-          total: 0,
-          byTemplate: {}
-        };
-      }
+      const userId = workout.user?._id || workout.userId;
+      const userName = workout.user?.name || 'Unknown User';
+      const userColor = workout.user?.color || '#cccccc';
       
-      stats.byUser[userId].total++;
-      
-      // Count by template for each user
-      stats.byUser[userId].byTemplate[templateName] = 
-        (stats.byUser[userId].byTemplate[templateName] || 0) + 1;
+      if (userId) {
+        if (!stats.byUser[userId]) {
+          stats.byUser[userId] = {
+            name: userName,
+            color: userColor,
+            total: 0,
+            byTemplate: {}
+          };
+        }
+        
+        stats.byUser[userId].total += 1;
+        
+        // Count by template for this user
+        stats.byUser[userId].byTemplate[templateName] = 
+          (stats.byUser[userId].byTemplate[templateName] || 0) + 1;
+      }
     });
     
-    console.log('Calculated stats:', stats);
     return stats;
-  }, [workoutHistory, startDate, endDate, selectedUsers, users]);
+  }, [filteredWorkouts]);
 
   useEffect(() => {
-    const stats = calculateWorkoutStats();
-    setWorkoutStats(stats);
-  }, [workoutHistory, startDate, endDate, selectedUsers, calculateWorkoutStats]);
+    setWorkoutStats(computedWorkoutStats);
+  }, [computedWorkoutStats]);
 
   const exportWorkouts = () => {
     const workoutsToExport = filteredWorkouts.map(workout => ({
@@ -1158,7 +1493,7 @@ const WorkoutHistory = () => {
               onChange={(e) => setSelectedExercise(e.target.value)}
               label="Exercise"
             >
-              {uniqueExercises.map(exercise => (
+              {['all', ...new Set(workoutHistory.flatMap(workout => workout.exercises.map(exercise => exercise.name)))].map(exercise => (
                 <MenuItem key={exercise} value={exercise}>
                   {exercise === 'all' ? 'All Exercises' : exercise}
                 </MenuItem>
@@ -1624,27 +1959,54 @@ const WorkoutHistory = () => {
                       Volume: {calculateTotalVolume(workout.exercises)}kg
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditClick(workout);
-                        }}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton 
-                        size="small" 
-                        color="error" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setWorkoutToDelete(workout);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                      {(() => {
+                        // Debug information
+                        const workoutUserId = workout.user?._id || workout.userId;
+                        const currentUserId = currentUser?._id || currentUser?.id;
+                        const isAdmin = currentUser?.isAdmin === true;
+                        const isOwner = workoutUserId === currentUserId;
+                        
+                        console.log('Workout:', workout.templateName);
+                        console.log('  Workout User ID:', workoutUserId);
+                        console.log('  Current User ID:', currentUserId);
+                        console.log('  Is Admin:', isAdmin);
+                        console.log('  Is Owner:', isOwner);
+                        console.log('  Should Show Controls:', isAdmin || isOwner);
+                        
+                        return (isAdmin || isOwner) && (
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditClick(workout);
+                            }}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        );
+                      })()}
+                      
+                      {(() => {
+                        const workoutUserId = workout.user?._id || workout.userId;
+                        const currentUserId = currentUser?._id || currentUser?.id;
+                        const isAdmin = currentUser?.isAdmin === true;
+                        const isOwner = workoutUserId === currentUserId;
+                        
+                        return (isAdmin || isOwner) && (
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setWorkoutToDelete(workout);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        );
+                      })()}
                     </Box>
                   </Box>
                 </Box>
@@ -1692,105 +2054,13 @@ const WorkoutHistory = () => {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>
-          Edit Workout: {editWorkout?.templateName}
-        </DialogTitle>
-        <DialogContent>
-          {editWorkout && (
-            <Box sx={{ mt: 2 }}>
-              <TextField
-                fullWidth
-                label="Workout Name"
-                value={editWorkout.templateName}
-                onChange={(e) => setEditWorkout({ ...editWorkout, templateName: e.target.value })}
-                sx={{ mb: 3 }}
-              />
-              {editWorkout.exercises.map((exercise, exerciseIndex) => (
-                <Box key={exercise.id} sx={{ mb: 4 }}>
-                  <Typography variant="h6" gutterBottom>
-                    {exercise.name}
-                  </Typography>
-                  <TableContainer component={Paper} variant="outlined">
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Set</TableCell>
-                          <TableCell align="right">Weight (kg)</TableCell>
-                          <TableCell align="right">Reps</TableCell>
-                          <TableCell align="right">Completed</TableCell>
-                          <TableCell align="right">Actions</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {exercise.sets.map((set, setIndex) => (
-                          <TableRow 
-                            key={setIndex}
-                            sx={{
-                              backgroundColor: set.completed ? 'inherit' : 'action.hover',
-                              opacity: set.completed ? 1 : 0.7
-                            }}
-                          >
-                            <TableCell>{setIndex + 1}</TableCell>
-                            <TableCell align="right">
-                              <TextField
-                                type="number"
-                                value={set.weight}
-                                onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'weight', Number(e.target.value))}
-                                size="small"
-                                inputProps={{ style: { textAlign: 'right' } }}
-                                disabled={!set.completed}
-                              />
-                            </TableCell>
-                            <TableCell align="right">
-                              <TextField
-                                type="number"
-                                value={set.reps}
-                                onChange={(e) => handleSetChange(exerciseIndex, setIndex, 'reps', Number(e.target.value))}
-                                size="small"
-                                inputProps={{ style: { textAlign: 'right' } }}
-                                disabled={!set.completed}
-                              />
-                            </TableCell>
-                            <TableCell align="right">
-                              <Checkbox
-                                checked={set.completed}
-                                onChange={() => handleToggleSetCompletion(exerciseIndex, setIndex)}
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell align="right">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => handleRemoveSet(exerciseIndex, setIndex)}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => handleAddSet(exerciseIndex)}
-                    sx={{ mt: 1 }}
-                  >
-                    Add Set
-                  </Button>
-                </Box>
-              ))}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleEditClose}>Cancel</Button>
-          <Button onClick={handleEditSave} variant="contained" color="primary">
-            Save Changes
-          </Button>
-        </DialogActions>
+        {editWorkout && (
+          <EditWorkoutForm 
+            workout={editWorkout}
+            onSave={handleSaveEdit}
+            onCancel={handleEditClose}
+          />
+        )}
       </Dialog>
 
       <Dialog

@@ -2,9 +2,11 @@ const express = require('express');
 const router = express.Router();
 const CompletedWorkout = require('../models/CompletedWorkout');
 const User = require('../models/User');
+const authRouter = require('./auth');
+const protect = authRouter.protect;
 
 // Get all workouts
-router.get('/', async (req, res) => {
+router.get('/', protect, async (req, res) => {
   try {
     const userId = req.query.userId;
     const query = userId ? { user: userId } : {};
@@ -18,7 +20,7 @@ router.get('/', async (req, res) => {
 });
 
 // Create a new workout
-router.post('/', async (req, res) => {
+router.post('/', protect, async (req, res) => {
   try {
     console.log('Received completed workout request');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
@@ -126,7 +128,7 @@ router.post('/', async (req, res) => {
 });
 
 // Update a workout
-router.put('/:id', async (req, res) => {
+router.put('/:id', protect, async (req, res) => {
   try {
     console.log('Updating workout:', req.params.id);
     console.log('Update data:', JSON.stringify(req.body, null, 2));
@@ -136,15 +138,28 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ message: 'Exercises array is required' });
     }
     
+    // First, find the workout to check permissions
+    const existingWorkout = await CompletedWorkout.findById(req.params.id);
+    
+    if (!existingWorkout) {
+      return res.status(404).json({ message: 'Workout not found' });
+    }
+    
+    // Check if the user is authorized to update this workout
+    // User must either be an admin or the owner of the workout
+    const userId = req.user?._id?.toString();
+    const workoutUserId = existingWorkout.user?._id?.toString() || existingWorkout.userId?.toString();
+    const isAdmin = req.user?.isAdmin === true;
+    
+    if (!isAdmin && userId !== workoutUserId) {
+      return res.status(403).json({ message: 'Not authorized to update this workout' });
+    }
+    
     const workout = await CompletedWorkout.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true, runValidators: true }
     ).populate('user', 'name color');
-    
-    if (!workout) {
-      return res.status(404).json({ message: 'Workout not found' });
-    }
     
     console.log('Workout updated successfully');
     res.json(workout);
@@ -158,12 +173,26 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete a workout
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', protect, async (req, res) => {
   try {
-    const workout = await CompletedWorkout.findByIdAndDelete(req.params.id);
-    if (!workout) {
+    // First, find the workout to check permissions
+    const existingWorkout = await CompletedWorkout.findById(req.params.id);
+    
+    if (!existingWorkout) {
       return res.status(404).json({ message: 'Workout not found' });
     }
+    
+    // Check if the user is authorized to delete this workout
+    // User must either be an admin or the owner of the workout
+    const userId = req.user?._id?.toString();
+    const workoutUserId = existingWorkout.user?._id?.toString() || existingWorkout.userId?.toString();
+    const isAdmin = req.user?.isAdmin === true;
+    
+    if (!isAdmin && userId !== workoutUserId) {
+      return res.status(403).json({ message: 'Not authorized to delete this workout' });
+    }
+    
+    const workout = await CompletedWorkout.findByIdAndDelete(req.params.id);
     res.json({ message: 'Workout deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -171,7 +200,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Fix all workout and exercise IDs
-router.post('/fix-ids', async (req, res) => {
+router.post('/fix-ids', protect, async (req, res) => {
   try {
     console.log('Starting to fix workout and exercise IDs');
     

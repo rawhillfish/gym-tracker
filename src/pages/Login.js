@@ -23,8 +23,8 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Get the redirect path from location state or default to home page
-  const from = location.state?.from?.pathname || '/';
+  // Get the redirect path from location state or default to dashboard
+  const from = location.state?.from?.pathname || '/dashboard';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,7 +46,7 @@ const Login = () => {
       await login(email, password);
       
       console.log('Login successful, navigating to:', from);
-      // Redirect to the page the user was trying to access, or home if none
+      // Redirect to dashboard or the page the user was trying to access
       navigate(from, { replace: true });
     } catch (error) {
       console.error('Login error in component:', error);

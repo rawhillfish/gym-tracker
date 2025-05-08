@@ -17,6 +17,7 @@ import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Landing from './pages/Landing';
 import MobileTrack from './pages/MobileTrack';
+import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Import AuthProvider
@@ -34,6 +35,13 @@ function App() {
             <Route path="/landing" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            
+            {/* Dashboard - shown after login */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
             
             {/* Protected routes */}
             <Route path="/profile" element={

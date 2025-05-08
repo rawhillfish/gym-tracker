@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import apiService from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 // Predefined color options
 const colorOptions = [
@@ -68,12 +69,13 @@ const ColorOption = styled(Box)(({ theme, selected }) => ({
 }));
 
 const UserManager = ({ isSubTab }) => {
+  const { currentUser, isAdmin } = useAuth();
   const [activeUsers, setActiveUsers] = useState([]);
   const [retiredUsers, setRetiredUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [currentUser, setCurrentUser] = useState({ name: '', color: '#1976d2', retired: false });
+  const [currentEditUser, setCurrentEditUser] = useState({ name: '', color: '#1976d2', retired: false });
   const [isEditing, setIsEditing] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -118,9 +120,36 @@ const UserManager = ({ isSubTab }) => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Handle dialog open for editing an existing user
+  // Check if the current user can edit a specific user
+  const canEditUser = (user) => {
+    // Admins can edit anyone
+    if (isAdmin()) {
+      return true;
+    }
+    
+    // Regular users can only edit themselves
+    return currentUser && user._id === currentUser.id;
+  };
+
+  // Handle opening the edit dialog
   const handleEditUser = (user) => {
-    setCurrentUser({ ...user });
+    // Check if the current user has permission to edit this user
+    if (!canEditUser(user)) {
+      setSnackbar({
+        open: true,
+        message: 'You can only edit your own profile',
+        severity: 'error'
+      });
+      return;
+    }
+    
+    setCurrentEditUser({
+      _id: user._id,
+      name: user.name,
+      color: user.color || '#1976d2',
+      retired: user.retired || false,
+      isAdmin: user.isAdmin || false
+    });
     setIsEditing(true);
     setOpenDialog(true);
   };
@@ -132,12 +161,12 @@ const UserManager = ({ isSubTab }) => {
 
   // Handle color selection
   const handleColorSelect = (color) => {
-    setCurrentUser({ ...currentUser, color });
+    setCurrentEditUser({ ...currentEditUser, color });
   };
 
   // Handle form submission for updating a user
   const handleSubmit = async () => {
-    if (!currentUser.name.trim()) {
+    if (!currentEditUser.name.trim()) {
       setSnackbar({
         open: true,
         message: 'User name is required',
@@ -148,10 +177,10 @@ const UserManager = ({ isSubTab }) => {
 
     try {
       // Update existing user
-      await apiService.updateUser(currentUser._id, {
-        name: currentUser.name,
-        color: currentUser.color,
-        retired: currentUser.retired
+      await apiService.updateUser(currentEditUser._id, {
+        name: currentEditUser.name,
+        color: currentEditUser.color,
+        retired: currentEditUser.retired
       });
       setSnackbar({
         open: true,
@@ -265,6 +294,41 @@ const UserManager = ({ isSubTab }) => {
     setSnackbar({ ...snackbar, open: false });
   };
 
+  // Render the user list items with conditional edit buttons
+  const renderUserListItem = (user) => (
+    <ListItem key={user._id}>
+      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+        <ColorPreview bgcolor={user.color} />
+        <ListItemText 
+          primary={user.name} 
+          secondary={user.isAdmin ? 'Admin' : 'User'}
+        />
+        <Box>
+          <IconButton
+            edge="end"
+            aria-label="edit"
+            onClick={() => handleEditUser(user)}
+            sx={{ 
+              mr: 1,
+              visibility: canEditUser(user) ? 'visible' : 'hidden'
+            }}
+          >
+            <EditIcon />
+          </IconButton>
+          {isAdmin() && (
+            <IconButton
+              edge="end"
+              aria-label="delete"
+              onClick={() => handleRetireUser(user._id)}
+            >
+              <DeleteIcon />
+            </IconButton>
+          )}
+        </Box>
+      </Box>
+    </ListItem>
+  );
+
   return (
     <Container maxWidth="md" sx={{ mt: isSubTab ? 0 : 4, mb: 4 }}>
       <Box display="flex" justifyContent="space-between" mb={3}>
@@ -301,31 +365,7 @@ const UserManager = ({ isSubTab }) => {
                   Active Users
                 </Typography>
                 <List>
-                  {activeUsers.map((user) => (
-                    <ListItem key={user._id}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                        <ColorPreview bgcolor={user.color} />
-                        <ListItemText primary={user.name} />
-                        <Box>
-                          <IconButton
-                            edge="end"
-                            aria-label="edit"
-                            onClick={() => handleEditUser(user)}
-                            sx={{ mr: 1 }}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                          <IconButton
-                            edge="end"
-                            aria-label="delete"
-                            onClick={() => handleRetireUser(user._id)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
-                      </Box>
-                    </ListItem>
-                  ))}
+                  {activeUsers.map(renderUserListItem)}
                 </List>
               </Box>
             )}
@@ -352,30 +392,35 @@ const UserManager = ({ isSubTab }) => {
                       Retired Users
                     </Typography>
                     <List>
-                      {retiredUsers.map((user) => (
+                      {retiredUsers.map(user => (
                         <ListItem key={user._id}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', opacity: 0.7 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                             <ColorPreview bgcolor={user.color} />
                             <ListItemText 
-                              primary={`${user.name}${user.retired ? ' (Retired)' : ' (Deleted)'}`} 
+                              primary={user.name} 
+                              secondary={user.isDeleted ? 'Deleted' : 'Retired'}
                             />
                             <Box>
-                              <IconButton
-                                edge="end"
-                                aria-label="restore"
-                                onClick={() => handleRestoreUser(user._id)}
-                                sx={{ mr: 1 }}
-                              >
-                                <RestoreIcon />
-                              </IconButton>
-                              <IconButton
-                                edge="end"
-                                aria-label="delete permanently"
-                                onClick={() => handleHardDeleteUser(user._id)}
-                                color="error"
-                              >
-                                <DeleteForeverIcon />
-                              </IconButton>
+                              {isAdmin() && (
+                                <>
+                                  <IconButton
+                                    edge="end"
+                                    aria-label="restore"
+                                    onClick={() => handleRestoreUser(user._id)}
+                                    sx={{ mr: 1 }}
+                                  >
+                                    <RestoreIcon />
+                                  </IconButton>
+                                  <IconButton
+                                    edge="end"
+                                    aria-label="delete permanently"
+                                    onClick={() => handleHardDeleteUser(user._id)}
+                                    color="error"
+                                  >
+                                    <DeleteForeverIcon />
+                                  </IconButton>
+                                </>
+                              )}
                             </Box>
                           </Box>
                         </ListItem>
@@ -402,8 +447,8 @@ const UserManager = ({ isSubTab }) => {
               label="User Name"
               fullWidth
               variant="outlined"
-              value={currentUser.name}
-              onChange={(e) => setCurrentUser({ ...currentUser, name: e.target.value })}
+              value={currentEditUser.name}
+              onChange={(e) => setCurrentEditUser({ ...currentEditUser, name: e.target.value })}
             />
             
             <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
@@ -412,7 +457,7 @@ const UserManager = ({ isSubTab }) => {
             
             <Grid container spacing={2} alignItems="center">
               <Grid item>
-                <ColorPreview sx={{ bgcolor: currentUser.color, width: 40, height: 40 }} />
+                <ColorPreview sx={{ bgcolor: currentEditUser.color, width: 40, height: 40 }} />
               </Grid>
               <Grid item xs>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -420,7 +465,7 @@ const UserManager = ({ isSubTab }) => {
                     <ColorOption 
                       key={color}
                       sx={{ bgcolor: color }}
-                      selected={currentUser.color === color}
+                      selected={currentEditUser.color === color}
                       onClick={() => handleColorSelect(color)}
                     />
                   ))}
@@ -431,8 +476,8 @@ const UserManager = ({ isSubTab }) => {
             <FormControlLabel
               control={
                 <Switch
-                  checked={currentUser.retired}
-                  onChange={(e) => setCurrentUser({ ...currentUser, retired: e.target.checked })}
+                  checked={currentEditUser.retired}
+                  onChange={(e) => setCurrentEditUser({ ...currentEditUser, retired: e.target.checked })}
                 />
               }
               label="Retired"
