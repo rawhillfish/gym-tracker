@@ -442,6 +442,7 @@ const ExerciseManager = ({ isSubTab = false }) => {
                             }
                           >
                             <ListItemText
+                              component="div"
                               primary={
                                 <Typography variant="body1" sx={{ fontWeight: 500 }}>
                                   {exercise.name}
@@ -540,6 +541,7 @@ const ExerciseManager = ({ isSubTab = false }) => {
                 }
               >
                 <ListItemText
+                  component="div"
                   primary={
                     <Typography variant="body1" sx={{ fontWeight: 500 }}>
                       {exercise.name}
