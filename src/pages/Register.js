@@ -277,7 +277,7 @@ const Register = () => {
                 Already have an account?
               </Typography>
               <Typography variant="body2">
-                <Link to="/login" style={{ textDecoration: 'none' }}>
+                <Link to="/login" style={{ textDecoration: 'none', color: '#1976d2' }}>
                   Log in here
                 </Link>
               </Typography>

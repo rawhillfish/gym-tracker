@@ -76,20 +76,22 @@ const Navbar = () => {
   const getNavItems = () => {
     const items = [];
     
+    // Only show navigation items if user is authenticated
     if (isAuthenticated) {
+      // Add Dashboard as the first item
       items.push(
         { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' }
       );
-    }
-    
-    if (!isLandingPage) {
-      items.push(
-        { text: 'Web Track', icon: <FitnessCenter />, path: '/active' },
-        { text: 'Web History', icon: <History />, path: '/history' }
-      );
-    }
-    
-    if (isAuthenticated) {
+      
+      // Add tracking and history items if not on landing page
+      if (!isLandingPage) {
+        items.push(
+          { text: 'Web Track', icon: <FitnessCenter />, path: '/active' },
+          { text: 'Web History', icon: <History />, path: '/history' }
+        );
+      }
+      
+      // Add mobile and management items
       items.push(
         { text: 'Mobile Track', icon: <PhoneAndroid />, path: '/mobile' },
         { text: 'Mobile History', icon: <BarChart />, path: '/mobile-history' },
@@ -103,30 +105,33 @@ const Navbar = () => {
   // Mobile drawer content
   const drawer = (
     <Box sx={{ width: 250, pt: 2, bgcolor: 'background.paper' }} role="presentation">
-      <List>
-        {getNavItems().map((item) => (
-          <ListItem 
-            button 
-            key={item.text} 
-            component={RouterLink} 
-            to={item.path}
-            onClick={handleDrawerToggle}
-            sx={{ 
-              borderRadius: 2, 
-              mx: 1, 
-              mb: 1,
-              '&:hover': {
-                bgcolor: 'rgba(25, 118, 210, 0.1)'
-              }
-            }}
-          >
-            <ListItemIcon sx={{ color: 'primary.main', minWidth: 40 }}>
-              {item.icon}
-            </ListItemIcon>
-            <ListItemText primary={item.text} />
-          </ListItem>
-        ))}
-      </List>
+      {/* Only show navigation items if authenticated */}
+      {isAuthenticated && (
+        <List>
+          {getNavItems().map((item) => (
+            <ListItem 
+              button 
+              key={item.text} 
+              component={RouterLink} 
+              to={item.path}
+              onClick={handleDrawerToggle}
+              sx={{ 
+                borderRadius: 2, 
+                mx: 1, 
+                mb: 1,
+                '&:hover': {
+                  bgcolor: 'rgba(25, 118, 210, 0.1)'
+                }
+              }}
+            >
+              <ListItemIcon sx={{ color: 'primary.main', minWidth: 40 }}>
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItem>
+          ))}
+        </List>
+      )}
       <Divider sx={{ my: 2 }} />
       <Box sx={{ px: 2, pb: 2 }}>
         {isAuthenticated ? (
@@ -160,19 +165,24 @@ const Navbar = () => {
           <>
             <Button 
               fullWidth 
-              variant="contained" 
+              variant="outlined" 
               color="primary" 
               component={RouterLink} 
               to="/login"
               startIcon={<Login />}
-              sx={{ mb: 1 }}
+              sx={{ 
+                bgcolor: 'white',
+                borderColor: 'primary.main',
+                mb: 1,
+                '&:hover': { borderColor: 'primary.main', bgcolor: 'rgba(255, 255, 255, 0.9)' }
+              }}
               onClick={handleDrawerToggle}
             >
               Login
             </Button>
             <Button 
               fullWidth 
-              variant="outlined" 
+              variant="contained" 
               color="primary" 
               component={RouterLink} 
               to="/register"
@@ -212,7 +222,8 @@ const Navbar = () => {
         {/* Desktop Navigation */}
         {!isMobile && (
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            {getNavItems().map((item) => (
+            {/* Only show navigation items if authenticated */}
+            {isAuthenticated && getNavItems().map((item) => (
               <Button 
                 key={item.text}
                 color="inherit" 
@@ -253,8 +264,9 @@ const Navbar = () => {
                   component={RouterLink} 
                   to="/login"
                   sx={{ 
+                    bgcolor: 'white',
                     borderColor: 'primary.main',
-                    '&:hover': { borderColor: 'primary.main', bgcolor: 'rgba(25, 118, 210, 0.1)' }
+                    '&:hover': { borderColor: 'primary.main', bgcolor: 'rgba(255, 255, 255, 0.9)' }
                   }}
                 >
                   Login

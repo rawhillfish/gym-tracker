@@ -55,14 +55,22 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import CloseIcon from '@mui/icons-material/Close';
+import { 
+  format, 
+  parseISO, 
+  isSameDay, 
+  isWithinInterval, 
+  subDays, 
+  addDays 
+} from 'date-fns'; 
+import { saveAs } from 'file-saver';
 import DatePicker from 'react-datepicker';
-import "react-datepicker/dist/react-datepicker.css";
-import "../styles/calendar.css";
-import "../styles/datepicker.css";
-import { parseISO, isWithinInterval, format, isSameDay } from 'date-fns';
+import 'react-datepicker/dist/react-datepicker.css';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
-import { saveAs } from 'file-saver';
+import "../styles/calendar.css";
+import "../styles/enhanced-calendar.css";
+import "../styles/datepicker.css";
 import {
   LineChart,
   Line,
@@ -491,6 +499,9 @@ const WorkoutHistory = () => {
     byUser: {}
   });
 
+  // Add state to track if colors have been assigned
+  const [userColorsAssigned, setUserColorsAssigned] = useState(false);
+
   useEffect(() => {
     fetchWorkouts();
     fetchUsers();
@@ -504,18 +515,27 @@ const WorkoutHistory = () => {
       '#96CEB4',  // green
       '#FFEEAD',  // yellow
     ];
-    const colors = {};
-    if (Array.isArray(users)) {
-      users.forEach((user, index) => {
+    
+    if (Array.isArray(users) && users.length > 0 && !userColorsAssigned) {
+      // Create a new array with colors assigned to each user
+      const updatedUsers = users.map((user, index) => {
         if (user && user._id) {
-          colors[user._id] = defaultColors[index % defaultColors.length];
+          // Only update the color if it's not already set
+          if (!user.color) {
+            return {
+              ...user,
+              color: defaultColors[index % defaultColors.length]
+            };
+          }
         }
+        return user;
       });
+      
+      // Update the users state with the new array that has colors
+      setUsers(updatedUsers);
+      setUserColorsAssigned(true);
     }
-    // User colors are now stored in the colors variable
-    console.log('Users:', users);
-    console.log('User colors:', colors);
-  }, [users]);
+  }, [users, userColorsAssigned]); // Only run when users or userColorsAssigned changes
 
   useEffect(() => {
     // This effect runs when users or showRetiredUsers changes
@@ -1229,9 +1249,15 @@ const WorkoutHistory = () => {
             tileClassName={({ date, view }) => {
               if (view !== 'month') return null;
               
-              const workoutsOnDate = workoutHistory.filter(workout =>
-                isSameDay(parseISO(workout.startTime), date)
-              );
+              const workoutsOnDate = workoutHistory.filter(workout => {
+                if (!workout.startTime) return false;
+                try {
+                  return isSameDay(parseISO(workout.startTime), date);
+                } catch (error) {
+                  console.error("Error parsing date:", workout.startTime, error);
+                  return false;
+                }
+              });
               
               return workoutsOnDate.length > 0 ? 'has-workout' : null;
             }}
@@ -1243,59 +1269,51 @@ const WorkoutHistory = () => {
             tileContent={({ date, view }) => {
               if (view !== 'month') return null;
               
-              const workoutsOnDate = workoutHistory.filter(workout =>
-                isSameDay(parseISO(workout.startTime), date)
-              );
+              const workoutsOnDate = workoutHistory.filter(workout => {
+                if (!workout.startTime) return false;
+                try {
+                  return isSameDay(parseISO(workout.startTime), date);
+                } catch (error) {
+                  console.error("Error parsing date:", workout.startTime, error);
+                  return false;
+                }
+              });
               
               if (workoutsOnDate.length > 0) {
                 // Get unique users who worked out on this date
                 const uniqueWorkoutsByUser = workoutsOnDate.reduce((acc, workout) => {
                   // Use either userId or user._id, whichever is available
                   const userId = workout.userId || (workout.user && workout.user._id);
-                  if (!acc[userId]) {
+                  if (userId && !acc[userId]) {
                     acc[userId] = workout;
                   }
                   return acc;
                 }, {});
                 
                 const uniqueUsers = Object.values(uniqueWorkoutsByUser);
-                console.log('Date:', date.toISOString(), 'Unique users:', uniqueUsers.length);
                 
-                let backgroundStyle = '';
+                let backgroundColor = '';
                 const userNames = [];
                 
                 if (uniqueUsers.length === 1) {
                   // Check if user exists and has a color property
                   const workout = uniqueUsers[0];
                   const user = workout.user || {};
+                  const userId = workout.userId || (user && user._id);
                   
-                  if (user && user.color) {
-                    backgroundStyle = user.color;
-                  } else {
-                    backgroundStyle = '#cccccc'; // Default color if user or color is missing
-                  }
+                  // Find the user in the users array to get the color
+                  const foundUser = users.find(u => u._id === userId);
+                  const userColor = (foundUser && foundUser.color) || (user && user.color) || '#cccccc';
+                  
+                  backgroundColor = userColor;
                   
                   // Add user name if available
-                  if (user && user.name) {
-                    userNames.push(user.name);
+                  if ((foundUser && foundUser.name) || (user && user.name)) {
+                    userNames.push((foundUser && foundUser.name) || (user && user.name));
                   } else {
-                    // Try to find the user in the users array
-                    const userId = workout.userId || (user && user._id);
-                    const foundUser = users.find(u => u._id === userId);
-                    if (foundUser && foundUser.name) {
-                      userNames.push(foundUser.name);
-                    } else {
-                      userNames.push('Unknown User');
-                    }
+                    userNames.push('Unknown User');
                   }
-                }
-
-                if (uniqueUsers.length === 2) {
-                  console.log('Two users found:', {
-                    user1: uniqueUsers[0].user,
-                    user2: uniqueUsers[1].user
-                  });
-                  
+                } else if (uniqueUsers.length === 2) {
                   // Check if both users exist and have color properties
                   const workout1 = uniqueUsers[0];
                   const workout2 = uniqueUsers[1];
@@ -1311,7 +1329,7 @@ const WorkoutHistory = () => {
                   const color1 = (foundUser1 && foundUser1.color) || (user1 && user1.color) || '#cccccc';
                   const color2 = (foundUser2 && foundUser2.color) || (user2 && user2.color) || '#cccccc';
                   
-                  backgroundStyle = `linear-gradient(135deg, ${color1} 0%, ${color1} 50%, ${color2} 50%, ${color2} 100%)`;
+                  backgroundColor = `linear-gradient(135deg, ${color1} 0%, ${color1} 50%, ${color2} 50%, ${color2} 100%)`;
                   
                   // Add user names if available
                   if ((foundUser1 && foundUser1.name) || (user1 && user1.name)) {
@@ -1327,7 +1345,7 @@ const WorkoutHistory = () => {
                   }
                 } else if (uniqueUsers.length > 2) {
                   // For more than 2 users, use a special background
-                  backgroundStyle = 'linear-gradient(135deg, #f44336 0%, #2196f3 50%, #4caf50 100%)';
+                  backgroundColor = 'linear-gradient(135deg, #f44336 0%, #2196f3 50%, #4caf50 100%)';
                   
                   // Add all available user names
                   uniqueUsers.forEach(workout => {
@@ -1345,31 +1363,37 @@ const WorkoutHistory = () => {
                   }
                 }
                 
-                console.log('Background style:', backgroundStyle);
-                
                 return (
-                  <>
-                    <div 
-                      className="workout-tile"
-                      style={{ background: backgroundStyle }}
-                      title={userNames.join(', ')}
-                    >
-                      {/* Small user indicator */}
-                      <div className="user-indicator" style={{ 
-                        position: 'absolute', 
-                        bottom: '4px', 
-                        right: '4px',
-                        fontSize: '10px',
-                        color: 'white',
-                        textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-                        fontWeight: 'bold'
-                      }}>
-                        {uniqueUsers.length}
-                      </div>
+                  <div 
+                    style={{ 
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      background: backgroundColor,
+                      opacity: 0.7,
+                      borderRadius: '4px',
+                      zIndex: 1
+                    }}
+                    title={userNames.join(', ')}
+                  >
+                    <div style={{ 
+                      position: 'absolute', 
+                      bottom: '4px', 
+                      right: '4px',
+                      fontSize: '10px',
+                      color: 'white',
+                      textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                      fontWeight: 'bold',
+                      zIndex: 2
+                    }}>
+                      {uniqueUsers.length}
                     </div>
-                  </>
+                  </div>
                 );
               }
+              
               return null;
             }}
           />
@@ -1700,12 +1724,7 @@ const WorkoutHistory = () => {
               setTooltipDialogOpen(false);
             }}
             maxWidth="md"
-            PaperProps={{
-              style: { 
-                minWidth: '500px',
-                maxWidth: '90vw'
-              }
-            }}
+            fullWidth
           >
             <DialogTitle>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1713,7 +1732,7 @@ const WorkoutHistory = () => {
                   {tooltipData?.label || 'Workout Details'}
                 </Typography>
                 <Button 
-                  onClick={() => setTooltipDialogOpen(false)}
+                  onClick={() => setTooltipDialogOpen(false)} 
                   size="small"
                 >
                   Close

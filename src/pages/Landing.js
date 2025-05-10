@@ -4,44 +4,66 @@ import {
   Typography, 
   Box, 
   Button, 
-  Paper, 
   Grid,
-  Card,
-  CardContent,
-  CardMedia,
-  CardActions
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { 
-  FitnessCenterOutlined, 
-  TimelineOutlined, 
-  PersonOutlineOutlined,
-  CheckCircleOutlineOutlined
-} from '@mui/icons-material';
 
 const Landing = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   return (
-    <Box>
+    <Box sx={{ bgcolor: '#f5f5f5' }}>
       {/* Hero Section */}
       <Box 
         sx={{ 
-          bgcolor: 'primary.main', 
+          background: 'linear-gradient(135deg, #0d47a1 0%, #1976d2 100%)',
           color: 'white', 
-          py: 8,
+          pt: { xs: 6, md: 10 },
+          pb: { xs: 8, md: 12 },
           position: 'relative',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          textAlign: { xs: 'center', md: 'left' }
         }}
       >
         <Container maxWidth="lg">
           <Grid container spacing={4} alignItems="center">
             <Grid item xs={12} md={6}>
-              <Typography variant="h2" component="h1" gutterBottom fontWeight="bold">
+              <Typography 
+                variant="h2" 
+                component="h1" 
+                gutterBottom 
+                fontWeight="bold"
+                sx={{ 
+                  fontSize: { xs: '2.5rem', md: '3.5rem' },
+                  mb: 2
+                }}
+              >
                 Work It Out
               </Typography>
-              <Typography variant="h5" component="h2" gutterBottom sx={{ mb: 4 }}>
-                Track your workouts, monitor your progress, and achieve your fitness goals
+              <Typography 
+                variant="h5" 
+                component="h2" 
+                gutterBottom 
+                sx={{ 
+                  mb: 4,
+                  maxWidth: '600px',
+                  mx: { xs: 'auto', md: 0 },
+                  fontSize: { xs: '1.2rem', md: '1.5rem' }
+                }}
+              >
+                Simple, effective workout tracking for your fitness journey
               </Typography>
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  gap: 2, 
+                  flexWrap: 'wrap',
+                  justifyContent: { xs: 'center', md: 'flex-start' }
+                }}
+              >
                 <Button 
                   variant="contained" 
                   color="secondary" 
@@ -55,7 +77,7 @@ const Landing = () => {
                     fontWeight: 'bold'
                   }}
                 >
-                  Sign Up Free
+                  Sign Up
                 </Button>
                 <Button 
                   variant="outlined" 
@@ -79,150 +101,46 @@ const Landing = () => {
                 </Button>
               </Box>
             </Grid>
-            <Grid item xs={12} md={6} sx={{ display: { xs: 'none', md: 'block' } }}>
-              <Box 
-                component="img"
-                src="/workout-illustration.svg"
-                alt="Workout Illustration"
-                sx={{ 
-                  width: '100%',
-                  maxHeight: '400px',
-                  objectFit: 'contain'
-                }}
-              />
-            </Grid>
+            {!isMobile && (
+              <Grid item md={6} sx={{ display: { xs: 'none', md: 'block' } }}>
+                <Box 
+                  component="img"
+                  src="/workout-illustration.svg"
+                  alt="Workout Illustration"
+                  sx={{ 
+                    width: '100%',
+                    maxHeight: '400px',
+                    objectFit: 'contain'
+                  }}
+                />
+              </Grid>
+            )}
           </Grid>
         </Container>
       </Box>
 
-      {/* Features Section */}
-      <Container maxWidth="lg" sx={{ py: 8 }}>
-        <Typography variant="h4" component="h2" align="center" gutterBottom fontWeight="bold">
-          Features
-        </Typography>
-        <Typography variant="h6" component="p" align="center" color="text.secondary" sx={{ mb: 6 }}>
-          Everything you need to track your fitness journey
-        </Typography>
-
-        <Grid container spacing={4}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
-                <FitnessCenterOutlined sx={{ fontSize: 80, color: 'primary.main' }} />
-              </Box>
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Typography gutterBottom variant="h5" component="h3" align="center">
-                  Workout Tracking
-                </Typography>
-                <Typography align="center">
-                  Create custom workout templates and track your exercises, sets, reps, and weights.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
-                <TimelineOutlined sx={{ fontSize: 80, color: 'primary.main' }} />
-              </Box>
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Typography gutterBottom variant="h5" component="h3" align="center">
-                  Progress Charts
-                </Typography>
-                <Typography align="center">
-                  Visualize your progress over time with detailed charts and analytics.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
-                <PersonOutlineOutlined sx={{ fontSize: 80, color: 'primary.main' }} />
-              </Box>
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Typography gutterBottom variant="h5" component="h3" align="center">
-                  Multi-User Support
-                </Typography>
-                <Typography align="center">
-                  Track workouts for multiple users and compare progress between gym partners.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
-                <CheckCircleOutlineOutlined sx={{ fontSize: 80, color: 'primary.main' }} />
-              </Box>
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Typography gutterBottom variant="h5" component="h3" align="center">
-                  Weight Pre-filling
-                </Typography>
-                <Typography align="center">
-                  Automatically pre-fill weights based on your previous workouts for faster tracking.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      </Container>
-
-      {/* Call to Action */}
-      <Box sx={{ bgcolor: 'grey.100', py: 8 }}>
-        <Container maxWidth="md">
-          <Paper elevation={3} sx={{ p: 6, textAlign: 'center' }}>
-            <Typography variant="h4" component="h2" gutterBottom fontWeight="bold">
-              Ready to start tracking your workouts?
-            </Typography>
-            <Typography variant="body1" paragraph sx={{ mb: 4 }}>
-              Join thousands of users who are already improving their fitness with Work It Out.
-            </Typography>
-            <Button 
-              variant="contained" 
-              color="primary" 
-              size="large"
-              component={RouterLink}
-              to="/register"
-              sx={{ 
-                px: 4, 
-                py: 1.5,
-                fontSize: '1.1rem',
-                fontWeight: 'bold'
-              }}
-            >
-              Get Started Now
-            </Button>
-          </Paper>
-        </Container>
-      </Box>
-
-      {/* Footer */}
-      <Box sx={{ bgcolor: 'primary.dark', color: 'white', py: 6 }}>
+      {/* Footer - Simplified */}
+      <Box sx={{ bgcolor: 'primary.dark', color: 'white', py: 3 }}>
         <Container maxWidth="lg">
-          <Grid container spacing={4}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" component="h3" gutterBottom>
-                Work It Out
-              </Typography>
-              <Typography variant="body2">
-                &copy; 2025 Work It Out. All rights reserved.
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={6} sx={{ display: 'flex', justifyContent: { md: 'flex-end' } }}>
-              <Box sx={{ display: 'flex', gap: 3 }}>
-                <RouterLink to="/login" style={{ color: 'white', textDecoration: 'none' }}>
-                  Login
-                </RouterLink>
-                <RouterLink to="/register" style={{ color: 'white', textDecoration: 'none' }}>
-                  Register
-                </RouterLink>
-              </Box>
-            </Grid>
-          </Grid>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            textAlign: { xs: 'center', sm: 'left' }
+          }}>
+            <Typography variant="body2" sx={{ mb: { xs: 1, sm: 0 } }}>
+              &copy; 2025 Work It Out. All rights reserved.
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 3 }}>
+              <RouterLink to="/login" style={{ color: 'white', textDecoration: 'none' }}>
+                Login
+              </RouterLink>
+              <RouterLink to="/register" style={{ color: 'white', textDecoration: 'none' }}>
+                Register
+              </RouterLink>
+            </Box>
+          </Box>
         </Container>
       </Box>
     </Box>
