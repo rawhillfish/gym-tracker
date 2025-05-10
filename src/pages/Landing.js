@@ -206,10 +206,10 @@ const Landing = () => {
           <Grid container spacing={4}>
             <Grid item xs={12} md={6}>
               <Typography variant="h6" component="h3" gutterBottom>
-                Work It Out - Gym Tracker
+                Work It Out
               </Typography>
               <Typography variant="body2">
-                © 2025 Work It Out. All rights reserved.
+                &copy; 2025 Work It Out. All rights reserved.
               </Typography>
             </Grid>
             <Grid item xs={12} md={6} sx={{ display: 'flex', justifyContent: { md: 'flex-end' } }}>

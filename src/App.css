@@ -1,4 +1,17 @@
+/* Global Styles for Work It Out App - Dark Theme */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  background-color: #121212;
+  color: #ffffff;
+}
+
 .App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   text-align: center;
 }
 
@@ -14,7 +27,7 @@
 }
 
 .App-header {
-  background-color: #282c34;
+  background-color: #1e1e1e;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -35,4 +48,83 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Smooth transitions */
+a, button, .MuiPaper-root, .MuiCard-root {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #2d2d2d;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #8e2de2;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b15cff;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.slide-up {
+  animation: slideUp 0.5s ease-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+/* Custom focus styles for accessibility */
+*:focus {
+  outline: 2px solid #8e2de2;
+  outline-offset: 2px;
+}
+
+/* Dark theme specific styles */
+.MuiCard-root, .MuiPaper-root {
+  background-color: #1e1e1e;
+}
+
+.MuiTypography-root {
+  color: #ffffff;
+}
+
+.MuiTypography-colorTextSecondary {
+  color: #b0b0b0;
+}
+
+/* Glowing effect for important buttons */
+.MuiButton-containedPrimary {
+  box-shadow: 0 0 15px rgba(142, 45, 226, 0.4);
+}
+
+.MuiButton-containedPrimary:hover {
+  box-shadow: 0 0 20px rgba(142, 45, 226, 0.6);
 }

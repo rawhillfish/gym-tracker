@@ -5,17 +5,19 @@ import {
   Typography, 
   Button, 
   Box, 
-  Avatar, 
   Menu, 
+  Avatar, 
+  Tooltip, 
   MenuItem, 
   IconButton,
   Divider,
   ListItemIcon
 } from '@mui/material';
+import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import { 
   Link as RouterLink, 
-  useNavigate,
-  useLocation
+  useLocation,
+  useNavigate
 } from 'react-router-dom';
 import { 
   AccountCircle, 
@@ -56,10 +58,25 @@ const Navbar = () => {
   };
 
   return (
-    <AppBar position="static">
+    <AppBar position="static" sx={{ 
+      background: 'linear-gradient(to right, #4a00e0, #8e2de2)',
+      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)'
+    }}>
       <Toolbar>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Gym Tracker
+        <Typography 
+          variant="h6" 
+          component="div" 
+          sx={{ 
+            flexGrow: 1, 
+            fontWeight: 'bold',
+            letterSpacing: '0.5px',
+            display: 'flex',
+            alignItems: 'center',
+            textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
+          }}
+        >
+          <FitnessCenterIcon sx={{ mr: 1 }} />
+          Work It Out
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {/* Only show Track Workout and History tabs when not on landing page */}

@@ -1,6 +1,6 @@
 {
   "short_name": "Work It Out",
-  "name": "Work It Out - Gym Tracker",
+  "name": "Work It Out",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +20,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
+  "theme_color": "#8e2de2",
   "background_color": "#ffffff"
 }
