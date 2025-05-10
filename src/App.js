@@ -18,6 +18,7 @@ import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Landing from './pages/Landing';
 import MobileTrack from './pages/MobileTrack';
+import MobileHistory from './pages/MobileHistory';
 import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -79,6 +80,11 @@ function App() {
               <Route path="/mobile" element={
                 <ProtectedRoute>
                   <MobileTrack />
+                </ProtectedRoute>
+              } />
+              <Route path="/mobile-history" element={
+                <ProtectedRoute>
+                  <MobileHistory />
                 </ProtectedRoute>
               } />
               <Route path="/history" element={

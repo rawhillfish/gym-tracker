@@ -36,7 +36,8 @@ import {
   History,
   PhoneAndroid,
   Dashboard,
-  AdminPanelSettings
+  AdminPanelSettings,
+  BarChart
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -85,6 +86,7 @@ const Navbar = () => {
     if (isAuthenticated) {
       items.push(
         { text: 'Mobile Track', icon: <PhoneAndroid />, path: '/mobile' },
+        { text: 'Mobile History', icon: <BarChart />, path: '/mobile-history' },
         { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
         { text: 'Management', icon: <AdminPanelSettings />, path: '/management' }
       );
