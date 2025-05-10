@@ -54,11 +54,130 @@ const MobileHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [workoutToDelete, setWorkoutToDelete] = useState(null);
+  const [olderWorkoutsExpanded, setOlderWorkoutsExpanded] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'success'
   });
+
+  // Format duration from seconds to MM:SS
+  const formatDuration = (seconds) => {
+    if (!seconds && seconds !== 0) return '00:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Calculate duration from start and end times or use provided duration
+  const getWorkoutDuration = (workout) => {
+    if (workout.duration) return workout.duration;
+    
+    if (workout.startTime && workout.endTime) {
+      try {
+        const start = new Date(workout.startTime);
+        const end = new Date(workout.endTime);
+        if (isValid(start) && isValid(end)) {
+          return Math.floor((end - start) / 1000); // Convert ms to seconds
+        }
+      } catch (error) {
+        console.error('Error calculating duration:', error);
+      }
+    }
+    
+    return null;
+  };
+
+  // Calculate total volume for a workout
+  const calculateTotalVolume = (exercises) => {
+    if (!exercises || !Array.isArray(exercises) || exercises.length === 0) return 0;
+    
+    return exercises.reduce((total, exercise) => {
+      if (!exercise || !exercise.sets || !Array.isArray(exercise.sets) || exercise.sets.length === 0) {
+        return total;
+      }
+      
+      const exerciseVolume = exercise.sets.reduce((exTotal, set) => {
+        if (!set) return exTotal;
+        const reps = Number(set.reps) || 0;
+        const weight = Number(set.weight) || 0;
+        return exTotal + (reps * weight);
+      }, 0);
+      
+      return total + exerciseVolume;
+    }, 0);
+  };
+
+  // Format date safely
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown date';
+    try {
+      const date = parseISO(dateString);
+      if (!isValid(date)) return 'Invalid date';
+      return format(date, 'EEE, MMM d, yyyy');
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid date';
+    }
+  };
+
+  // Get workout name from various possible sources
+  const getWorkoutName = (workout) => {
+    if (workout.name) return workout.name;
+    if (workout.templateName) return workout.templateName;
+    if (workout.template && typeof workout.template === 'object' && workout.template.name) 
+      return workout.template.name;
+    
+    if (workout.exercises && workout.exercises.length > 0) 
+      return `Workout with ${workout.exercises.length} exercises`;
+    
+    return 'Unnamed Workout';
+  };
+
+  // Get workout date from various possible sources
+  const getWorkoutDate = (workout) => {
+    if (workout.date) return workout.date;
+    if (workout.startTime) return workout.startTime;
+    if (workout.createdAt) return workout.createdAt;
+    return null;
+  };
+
+  // Group workouts by recency (last 7 days vs older)
+  const groupWorkoutsByRecency = (workouts) => {
+    const today = startOfToday();
+    const recentWorkouts = [];
+    const olderWorkouts = [];
+    
+    workouts.forEach(workout => {
+      const workoutDate = getWorkoutDate(workout);
+      
+      if (!workoutDate) {
+        olderWorkouts.push(workout);
+        return;
+      }
+      
+      try {
+        const date = new Date(workoutDate);
+        if (!isValid(date)) {
+          olderWorkouts.push(workout);
+          return;
+        }
+        
+        const dayDifference = differenceInDays(today, date);
+        
+        if (dayDifference < 7) {
+          recentWorkouts.push(workout);
+        } else {
+          olderWorkouts.push(workout);
+        }
+      } catch (error) {
+        console.error('Error grouping workout by date:', error);
+        olderWorkouts.push(workout);
+      }
+    });
+    
+    return { recentWorkouts, olderWorkouts };
+  };
 
   useEffect(() => {
     fetchWorkouts();
@@ -137,10 +256,6 @@ const MobileHistory = () => {
     setExpandedWorkout(expandedWorkout === workoutId ? null : workoutId);
   };
 
-  const handleEditWorkout = (workout) => {
-    navigate(`/history`, { state: { editWorkout: workout } });
-  };
-
   const handleDeleteClick = (workout) => {
     setWorkoutToDelete(workout);
     setDeleteDialogOpen(true);
@@ -172,40 +287,8 @@ const MobileHistory = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const groupWorkoutsByRecency = (workouts) => {
-    const today = startOfToday();
-    const recentWorkouts = [];
-    const olderWorkouts = [];
-    
-    workouts.forEach(workout => {
-      const workoutDate = getWorkoutDate(workout);
-      
-      if (!workoutDate) {
-        olderWorkouts.push(workout);
-        return;
-      }
-      
-      try {
-        const date = new Date(workoutDate);
-        if (!isValid(date)) {
-          olderWorkouts.push(workout);
-          return;
-        }
-        
-        const dayDifference = differenceInDays(today, date);
-        
-        if (dayDifference < 7) {
-          recentWorkouts.push(workout);
-        } else {
-          olderWorkouts.push(workout);
-        }
-      } catch (error) {
-        console.error('Error grouping workout by date:', error);
-        olderWorkouts.push(workout);
-      }
-    });
-    
-    return { recentWorkouts, olderWorkouts };
+  const toggleOlderWorkouts = () => {
+    setOlderWorkoutsExpanded(!olderWorkoutsExpanded);
   };
 
   const filteredWorkouts = workouts.filter(workout => {
@@ -222,82 +305,7 @@ const MobileHistory = () => {
   
   const { recentWorkouts, olderWorkouts } = groupWorkoutsByRecency(filteredWorkouts);
 
-  const formatDuration = (seconds) => {
-    if (!seconds && seconds !== 0) return '00:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const getWorkoutDuration = (workout) => {
-    if (workout.duration) return workout.duration;
-    
-    if (workout.startTime && workout.endTime) {
-      try {
-        const start = new Date(workout.startTime);
-        const end = new Date(workout.endTime);
-        if (isValid(start) && isValid(end)) {
-          return Math.floor((end - start) / 1000); // Convert ms to seconds
-        }
-      } catch (error) {
-        console.error('Error calculating duration:', error);
-      }
-    }
-    
-    return null;
-  };
-
-  const calculateTotalVolume = (exercises) => {
-    if (!exercises || !Array.isArray(exercises) || exercises.length === 0) return 0;
-    
-    return exercises.reduce((total, exercise) => {
-      if (!exercise || !exercise.sets || !Array.isArray(exercise.sets) || exercise.sets.length === 0) {
-        return total;
-      }
-      
-      const exerciseVolume = exercise.sets.reduce((exTotal, set) => {
-        if (!set) return exTotal;
-        const reps = Number(set.reps) || 0;
-        const weight = Number(set.weight) || 0;
-        return exTotal + (reps * weight);
-      }, 0);
-      
-      return total + exerciseVolume;
-    }, 0);
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Unknown date';
-    try {
-      const date = parseISO(dateString);
-      if (!isValid(date)) return 'Invalid date';
-      return format(date, 'MMM d, yyyy');
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Invalid date';
-    }
-  };
-
-  const getWorkoutName = (workout) => {
-    if (workout.name) return workout.name;
-    if (workout.templateName) return workout.templateName;
-    if (workout.template && typeof workout.template === 'object' && workout.template.name) 
-      return workout.template.name;
-    
-    if (workout.exercises && workout.exercises.length > 0) 
-      return `Workout with ${workout.exercises.length} exercises`;
-    
-    return 'Unnamed Workout';
-  };
-
-  const getWorkoutDate = (workout) => {
-    if (workout.date) return workout.date;
-    if (workout.startTime) return workout.startTime;
-    if (workout.createdAt) return workout.createdAt;
-    return null;
-  };
-
-  const WorkoutCard = ({ workout, expandedWorkout, onToggleExpand, onEdit, onDelete, formatDate, formatDuration, getWorkoutName, getWorkoutDate, getWorkoutDuration, calculateTotalVolume }) => {
+  const WorkoutCard = ({ workout, expandedWorkout, onToggleExpand, onDelete, formatDate, formatDuration, getWorkoutName, getWorkoutDate, getWorkoutDuration, calculateTotalVolume }) => {
     return (
       <Card 
         sx={{ 
@@ -318,19 +326,19 @@ const MobileHistory = () => {
                   icon={<CalendarIcon fontSize="small" />}
                   label={formatDate(getWorkoutDate(workout))}
                   size="small"
-                  sx={{ mr: 1, mb: 1, bgcolor: 'rgba(142, 45, 226, 0.1)' }}
+                  sx={{ mr: 1, mb: 1, bgcolor: 'rgba(25, 118, 210, 0.1)' }}
                 />
                 <Chip 
                   icon={<AccessTimeIcon fontSize="small" />}
                   label={formatDuration(getWorkoutDuration(workout))}
                   size="small"
-                  sx={{ mr: 1, mb: 1, bgcolor: 'rgba(142, 45, 226, 0.1)' }}
+                  sx={{ mr: 1, mb: 1, bgcolor: 'rgba(25, 118, 210, 0.1)' }}
                 />
                 <Chip 
                   icon={<FitnessCenterIcon fontSize="small" />}
                   label={`${workout.exercises?.length || 0} exercises`}
                   size="small"
-                  sx={{ mb: 1, bgcolor: 'rgba(142, 45, 226, 0.1)' }}
+                  sx={{ mb: 1, bgcolor: 'rgba(25, 118, 210, 0.1)' }}
                 />
               </Box>
             </Box>
@@ -338,8 +346,8 @@ const MobileHistory = () => {
               onClick={() => onToggleExpand(workout._id)}
               sx={{ 
                 p: 1,
-                bgcolor: 'rgba(142, 45, 226, 0.1)',
-                '&:hover': { bgcolor: 'rgba(142, 45, 226, 0.2)' }
+                bgcolor: 'rgba(25, 118, 210, 0.1)',
+                '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.2)' }
               }}
             >
               {expandedWorkout === workout._id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
@@ -400,17 +408,10 @@ const MobileHistory = () => {
         <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
           <Button 
             size="small" 
-            startIcon={<EditIcon />}
-            onClick={() => onEdit(workout)}
-            sx={{ mr: 1 }}
-          >
-            Edit
-          </Button>
-          <Button 
-            size="small" 
             color="error" 
             startIcon={<DeleteIcon />}
             onClick={() => onDelete(workout)}
+            fullWidth
           >
             Delete
           </Button>
@@ -499,7 +500,6 @@ const MobileHistory = () => {
                   workout={workout}
                   expandedWorkout={expandedWorkout}
                   onToggleExpand={handleToggleExpand}
-                  onEdit={handleEditWorkout}
                   onDelete={handleDeleteClick}
                   formatDate={formatDate}
                   formatDuration={formatDuration}
@@ -514,36 +514,51 @@ const MobileHistory = () => {
           
           {olderWorkouts.length > 0 && (
             <>
-              <Typography 
-                variant="subtitle1" 
+              <Box 
                 sx={{ 
                   mt: recentWorkouts.length > 0 ? 4 : 0,
                   mb: 2, 
-                  fontWeight: 'bold',
                   display: 'flex',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  bgcolor: 'rgba(0, 0, 0, 0.03)',
+                  p: 1.5,
+                  borderRadius: 2
                 }}
+                onClick={toggleOlderWorkouts}
               >
-                <AccessTimeIcon sx={{ mr: 1, fontSize: 20 }} />
-                Older Workouts
-              </Typography>
+                <Typography 
+                  variant="subtitle1" 
+                  sx={{ 
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  <AccessTimeIcon sx={{ mr: 1, fontSize: 20 }} />
+                  Older Workouts ({olderWorkouts.length})
+                </Typography>
+                {olderWorkoutsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </Box>
               
-              {olderWorkouts.map((workout) => (
-                <WorkoutCard 
-                  key={workout._id} 
-                  workout={workout}
-                  expandedWorkout={expandedWorkout}
-                  onToggleExpand={handleToggleExpand}
-                  onEdit={handleEditWorkout}
-                  onDelete={handleDeleteClick}
-                  formatDate={formatDate}
-                  formatDuration={formatDuration}
-                  getWorkoutName={getWorkoutName}
-                  getWorkoutDate={getWorkoutDate}
-                  getWorkoutDuration={getWorkoutDuration}
-                  calculateTotalVolume={calculateTotalVolume}
-                />
-              ))}
+              <Collapse in={olderWorkoutsExpanded} timeout="auto">
+                {olderWorkouts.map((workout) => (
+                  <WorkoutCard 
+                    key={workout._id} 
+                    workout={workout}
+                    expandedWorkout={expandedWorkout}
+                    onToggleExpand={handleToggleExpand}
+                    onDelete={handleDeleteClick}
+                    formatDate={formatDate}
+                    formatDuration={formatDuration}
+                    getWorkoutName={getWorkoutName}
+                    getWorkoutDate={getWorkoutDate}
+                    getWorkoutDuration={getWorkoutDuration}
+                    calculateTotalVolume={calculateTotalVolume}
+                  />
+                ))}
+              </Collapse>
             </>
           )}
         </Box>

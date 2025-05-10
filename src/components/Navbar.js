@@ -76,10 +76,16 @@ const Navbar = () => {
   const getNavItems = () => {
     const items = [];
     
+    if (isAuthenticated) {
+      items.push(
+        { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' }
+      );
+    }
+    
     if (!isLandingPage) {
       items.push(
-        { text: 'Track Workout', icon: <FitnessCenter />, path: '/active' },
-        { text: 'History', icon: <History />, path: '/history' }
+        { text: 'Web Track', icon: <FitnessCenter />, path: '/active' },
+        { text: 'Web History', icon: <History />, path: '/history' }
       );
     }
     
@@ -87,7 +93,6 @@ const Navbar = () => {
       items.push(
         { text: 'Mobile Track', icon: <PhoneAndroid />, path: '/mobile' },
         { text: 'Mobile History', icon: <BarChart />, path: '/mobile-history' },
-        { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
         { text: 'Management', icon: <AdminPanelSettings />, path: '/management' }
       );
     }
@@ -111,7 +116,7 @@ const Navbar = () => {
               mx: 1, 
               mb: 1,
               '&:hover': {
-                bgcolor: 'rgba(142, 45, 226, 0.1)'
+                bgcolor: 'rgba(25, 118, 210, 0.1)'
               }
             }}
           >
@@ -128,10 +133,9 @@ const Navbar = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <Avatar 
               sx={{ 
-                bgcolor: currentUser?.color || 'primary.main',
-                width: 40,
-                height: 40,
-                mr: 2
+                width: 40, 
+                height: 40, 
+                bgcolor: currentUser?.color || 'primary.main'
               }}
             >
               {currentUser?.name?.charAt(0) || 'U'}
@@ -185,7 +189,7 @@ const Navbar = () => {
 
   return (
     <AppBar position="static" sx={{ 
-      background: 'linear-gradient(to right, #4a00e0, #8e2de2)',
+      background: 'linear-gradient(to right, #0d47a1, #1976d2)',
       boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)'
     }}>
       <Toolbar>
@@ -234,7 +238,7 @@ const Navbar = () => {
                     sx={{ 
                       width: 32, 
                       height: 32, 
-                      bgcolor: currentUser?.color || 'primary.light'
+                      bgcolor: currentUser?.color || 'primary.main'
                     }}
                   >
                     {currentUser?.name?.charAt(0) || 'U'}
@@ -245,19 +249,19 @@ const Navbar = () => {
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button 
                   variant="outlined" 
-                  color="inherit" 
+                  color="primary" 
                   component={RouterLink} 
                   to="/login"
                   sx={{ 
-                    borderColor: 'rgba(255, 255, 255, 0.5)',
-                    '&:hover': { borderColor: 'white', bgcolor: 'rgba(255, 255, 255, 0.1)' }
+                    borderColor: 'primary.main',
+                    '&:hover': { borderColor: 'primary.main', bgcolor: 'rgba(25, 118, 210, 0.1)' }
                   }}
                 >
                   Login
                 </Button>
                 <Button 
                   variant="contained" 
-                  color="secondary" 
+                  color="primary" 
                   component={RouterLink} 
                   to="/register"
                 >
@@ -330,7 +334,7 @@ const Navbar = () => {
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         >
           <MenuItem component={RouterLink} to="/profile">
-            <Avatar sx={{ bgcolor: currentUser?.color || 'primary.main' }}>
+            <Avatar sx={{ bgcolor: 'primary.main' }}>
               {currentUser?.name?.charAt(0) || 'U'}
             </Avatar>
             Profile

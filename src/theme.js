@@ -4,9 +4,9 @@ const theme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#8e2de2',
-      light: '#b15cff',
-      dark: '#4a00e0',
+      main: '#1976d2',
+      light: '#42a5f5',
+      dark: '#0d47a1',
       contrastText: '#ffffff',
     },
     secondary: {
@@ -66,7 +66,7 @@ const theme = createTheme({
           },
         },
         containedPrimary: {
-          background: 'linear-gradient(45deg, #4a00e0 30%, #8e2de2 90%)',
+          background: 'linear-gradient(45deg, #0d47a1 30%, #1976d2 90%)',
         },
         containedSecondary: {
           background: 'linear-gradient(45deg, #00b060 30%, #2de28e 90%)',
@@ -94,7 +94,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)',
-          background: 'linear-gradient(to right, #4a00e0, #8e2de2)',
+          background: 'linear-gradient(to right, #0d47a1, #1976d2)',
         },
       },
     },
@@ -113,7 +113,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           '&:hover': {
-            backgroundColor: 'rgba(142, 45, 226, 0.1)',
+            backgroundColor: 'rgba(25, 118, 210, 0.1)',
           },
         },
       },
@@ -126,10 +126,10 @@ const theme = createTheme({
               borderColor: 'rgba(255, 255, 255, 0.23)',
             },
             '&:hover fieldset': {
-              borderColor: 'rgba(142, 45, 226, 0.5)',
+              borderColor: 'rgba(25, 118, 210, 0.5)',
             },
             '&.Mui-focused fieldset': {
-              borderColor: '#8e2de2',
+              borderColor: '#1976d2',
             },
           },
         },
