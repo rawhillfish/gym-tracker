@@ -41,7 +41,7 @@ import {
   AccessTime as AccessTimeIcon,
   Timeline as TimelineIcon
 } from '@mui/icons-material';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
 const MobileHistory = () => {
@@ -77,14 +77,35 @@ const MobileHistory = () => {
         fetchedWorkouts = response.data;
       }
       
+      console.log("Fetched workouts:", fetchedWorkouts);
+      
       // Filter workouts for the current user
-      const userWorkouts = fetchedWorkouts.filter(workout => 
-        workout.user && 
-        (workout.user._id === currentUser?.id || workout.user === currentUser?.id)
-      );
+      const userWorkouts = fetchedWorkouts.filter(workout => {
+        // Check if workout and user data exist
+        if (!workout) return false;
+        
+        // Check for valid user reference
+        if (!workout.user) return false;
+        
+        // Handle different user reference formats
+        const workoutUserId = typeof workout.user === 'object' ? workout.user._id : workout.user;
+        return workoutUserId === currentUser?.id;
+      });
       
       // Sort by date (newest first)
-      userWorkouts.sort((a, b) => new Date(b.date) - new Date(a.date));
+      userWorkouts.sort((a, b) => {
+        // Handle missing dates
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        
+        // Try to parse dates safely
+        try {
+          return new Date(b.date) - new Date(a.date);
+        } catch (err) {
+          console.error("Error sorting dates:", err);
+          return 0;
+        }
+      });
       
       setWorkouts(userWorkouts);
     } catch (err) {
@@ -157,19 +178,35 @@ const MobileHistory = () => {
 
   // Calculate total volume for a workout
   const calculateTotalVolume = (exercises) => {
-    if (!exercises || !exercises.length) return 0;
+    if (!exercises || !Array.isArray(exercises) || exercises.length === 0) return 0;
     
     return exercises.reduce((total, exercise) => {
-      if (!exercise.sets || !exercise.sets.length) return total;
+      if (!exercise || !exercise.sets || !Array.isArray(exercise.sets) || exercise.sets.length === 0) {
+        return total;
+      }
       
       const exerciseVolume = exercise.sets.reduce((exTotal, set) => {
-        const reps = set.reps || 0;
-        const weight = set.weight || 0;
+        if (!set) return exTotal;
+        const reps = Number(set.reps) || 0;
+        const weight = Number(set.weight) || 0;
         return exTotal + (reps * weight);
       }, 0);
       
       return total + exerciseVolume;
     }, 0);
+  };
+
+  // Format date safely
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown date';
+    try {
+      const date = parseISO(dateString);
+      if (!isValid(date)) return 'Invalid date';
+      return format(date, 'MMM d, yyyy');
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid date';
+    }
   };
 
   return (
@@ -250,7 +287,7 @@ const MobileHistory = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5, flexWrap: 'wrap' }}>
                       <Chip 
                         icon={<CalendarIcon fontSize="small" />}
-                        label={format(parseISO(workout.date), 'MMM d, yyyy')}
+                        label={formatDate(workout.date)}
                         size="small"
                         sx={{ mr: 1, mb: 1, bgcolor: 'rgba(142, 45, 226, 0.1)' }}
                       />
