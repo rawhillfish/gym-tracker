@@ -52,7 +52,8 @@ const protect = async (req, res, next) => {
 
     // Add user and auth to request object
     req.user = {
-      id: user._id,
+      _id: user._id,  // Use _id to match the MongoDB document field
+      id: user._id,   // Keep id for backward compatibility
       name: user.name,
       color: user.color,
       // Use isAdmin from token if available, otherwise from auth record

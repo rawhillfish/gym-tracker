@@ -132,6 +132,7 @@ router.put('/:id', protect, async (req, res) => {
   try {
     console.log('Updating workout:', req.params.id);
     console.log('Update data:', JSON.stringify(req.body, null, 2));
+    console.log('User data:', JSON.stringify(req.user, null, 2));
     
     // Validate the request body
     if (!req.body.exercises || !Array.isArray(req.body.exercises)) {
@@ -148,10 +149,34 @@ router.put('/:id', protect, async (req, res) => {
     // Check if the user is authorized to update this workout
     // User must either be an admin or the owner of the workout
     const userId = req.user?._id?.toString();
-    const workoutUserId = existingWorkout.user?._id?.toString() || existingWorkout.userId?.toString();
+    
+    // Get the workout user ID, handling different possible formats
+    let workoutUserId;
+    if (existingWorkout.user) {
+      // If it's a populated user object
+      if (typeof existingWorkout.user === 'object' && existingWorkout.user._id) {
+        workoutUserId = existingWorkout.user._id.toString();
+      } 
+      // If it's just the ObjectId
+      else {
+        workoutUserId = existingWorkout.user.toString();
+      }
+    } else if (existingWorkout.userId) {
+      workoutUserId = existingWorkout.userId.toString();
+    }
+    
     const isAdmin = req.user?.isAdmin === true;
     
+    console.log('Auth check:', { 
+      userId, 
+      workoutUserId, 
+      isAdmin,
+      userIdType: typeof userId,
+      workoutUserIdType: typeof workoutUserId
+    });
+    
     if (!isAdmin && userId !== workoutUserId) {
+      console.log('Authorization failed: User is not admin and not the workout owner');
       return res.status(403).json({ message: 'Not authorized to update this workout' });
     }
     
@@ -185,10 +210,34 @@ router.delete('/:id', protect, async (req, res) => {
     // Check if the user is authorized to delete this workout
     // User must either be an admin or the owner of the workout
     const userId = req.user?._id?.toString();
-    const workoutUserId = existingWorkout.user?._id?.toString() || existingWorkout.userId?.toString();
+    
+    // Get the workout user ID, handling different possible formats
+    let workoutUserId;
+    if (existingWorkout.user) {
+      // If it's a populated user object
+      if (typeof existingWorkout.user === 'object' && existingWorkout.user._id) {
+        workoutUserId = existingWorkout.user._id.toString();
+      } 
+      // If it's just the ObjectId
+      else {
+        workoutUserId = existingWorkout.user.toString();
+      }
+    } else if (existingWorkout.userId) {
+      workoutUserId = existingWorkout.userId.toString();
+    }
+    
     const isAdmin = req.user?.isAdmin === true;
     
+    console.log('Auth check for delete:', { 
+      userId, 
+      workoutUserId, 
+      isAdmin,
+      userIdType: typeof userId,
+      workoutUserIdType: typeof workoutUserId
+    });
+    
     if (!isAdmin && userId !== workoutUserId) {
+      console.log('Authorization failed: User is not admin and not the workout owner');
       return res.status(403).json({ message: 'Not authorized to delete this workout' });
     }
     
