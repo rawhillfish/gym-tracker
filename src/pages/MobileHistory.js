@@ -77,7 +77,7 @@ const MobileHistory = () => {
         fetchedWorkouts = response.data;
       }
       
-      console.log("Fetched workouts:", fetchedWorkouts);
+      console.log("Fetched workouts (raw):", fetchedWorkouts);
       
       // Filter workouts for the current user
       const userWorkouts = fetchedWorkouts.filter(workout => {
@@ -91,6 +91,23 @@ const MobileHistory = () => {
         const workoutUserId = typeof workout.user === 'object' ? workout.user._id : workout.user;
         return workoutUserId === currentUser?.id;
       });
+      
+      console.log("Current user ID:", currentUser?.id);
+      console.log("Filtered user workouts:", userWorkouts);
+      
+      // Log detailed workout structure for the first workout (if available)
+      if (userWorkouts.length > 0) {
+        const sampleWorkout = userWorkouts[0];
+        console.log("Sample workout structure:", {
+          id: sampleWorkout._id,
+          name: sampleWorkout.name,
+          template: sampleWorkout.template,
+          date: sampleWorkout.date,
+          dateType: typeof sampleWorkout.date,
+          exercises: sampleWorkout.exercises?.length || 0,
+          user: sampleWorkout.user
+        });
+      }
       
       // Sort by date (newest first)
       userWorkouts.sort((a, b) => {
@@ -170,10 +187,29 @@ const MobileHistory = () => {
 
   // Format duration from seconds to MM:SS
   const formatDuration = (seconds) => {
-    if (!seconds) return '00:00';
+    if (!seconds && seconds !== 0) return '00:00';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Calculate duration from start and end times or use provided duration
+  const getWorkoutDuration = (workout) => {
+    if (workout.duration) return workout.duration;
+    
+    if (workout.startTime && workout.endTime) {
+      try {
+        const start = new Date(workout.startTime);
+        const end = new Date(workout.endTime);
+        if (isValid(start) && isValid(end)) {
+          return Math.floor((end - start) / 1000); // Convert ms to seconds
+        }
+      } catch (error) {
+        console.error('Error calculating duration:', error);
+      }
+    }
+    
+    return null;
   };
 
   // Calculate total volume for a workout
@@ -207,6 +243,27 @@ const MobileHistory = () => {
       console.error('Error formatting date:', error);
       return 'Invalid date';
     }
+  };
+
+  // Get workout name from various possible sources
+  const getWorkoutName = (workout) => {
+    if (workout.name) return workout.name;
+    if (workout.templateName) return workout.templateName;
+    if (workout.template && typeof workout.template === 'object' && workout.template.name) 
+      return workout.template.name;
+    
+    if (workout.exercises && workout.exercises.length > 0) 
+      return `Workout with ${workout.exercises.length} exercises`;
+    
+    return 'Unnamed Workout';
+  };
+
+  // Get workout date from various possible sources
+  const getWorkoutDate = (workout) => {
+    if (workout.date) return workout.date;
+    if (workout.startTime) return workout.startTime;
+    if (workout.createdAt) return workout.createdAt;
+    return null;
   };
 
   return (
@@ -282,18 +339,18 @@ const MobileHistory = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <Box>
                     <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-                      {workout.name || (workout.template ? workout.template.name : 'Unnamed Workout')}
+                      {getWorkoutName(workout)}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5, flexWrap: 'wrap' }}>
                       <Chip 
                         icon={<CalendarIcon fontSize="small" />}
-                        label={formatDate(workout.date)}
+                        label={formatDate(getWorkoutDate(workout))}
                         size="small"
                         sx={{ mr: 1, mb: 1, bgcolor: 'rgba(142, 45, 226, 0.1)' }}
                       />
                       <Chip 
                         icon={<AccessTimeIcon fontSize="small" />}
-                        label={formatDuration(workout.duration)}
+                        label={formatDuration(getWorkoutDuration(workout))}
                         size="small"
                         sx={{ mr: 1, mb: 1, bgcolor: 'rgba(142, 45, 226, 0.1)' }}
                       />
