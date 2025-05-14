@@ -235,6 +235,35 @@ const MobileTrack = () => {
     }
   };
 
+  // Function to send a keep-alive request
+  const sendKeepAlive = () => {
+    apiService.keepAlive()
+      .then(response => console.log('Keep-alive successful:', response))
+      .catch(error => console.error('Keep-alive error:', error));
+  };
+
+  useEffect(() => {
+    let intervalId;
+    
+    // Only start the keep-alive mechanism if there are active workouts
+    if (activeWorkouts && activeWorkouts.length > 0) {
+      console.log('Starting keep-alive mechanism for active workout');
+      // Set up the interval to send a keep-alive request every 5 minutes
+      intervalId = setInterval(sendKeepAlive, 5 * 60 * 1000);
+      
+      // Send an initial keep-alive request immediately
+      sendKeepAlive();
+    }
+
+    // Clean up the interval when workouts are completed or on component unmount
+    return () => {
+      if (intervalId) {
+        console.log('Stopping keep-alive mechanism');
+        clearInterval(intervalId);
+      }
+    };
+  }, [activeWorkouts]);
+
   // Add exercise to workout
   const addExerciseToWorkout = () => {
     if (!selectedExercise || addExerciseDialog === false) return;

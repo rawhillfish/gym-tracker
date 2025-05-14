@@ -403,6 +403,14 @@ const apiService = {
     }
   },
   
+  // Keep-alive
+  keepAlive() {
+    return request('/api/completed-workouts/keep-alive', {
+      method: 'GET',
+      headers: this.getHeaders(),
+    });
+  },
+  
   // Completed Workouts
   async getCompletedWorkouts() {
     try {

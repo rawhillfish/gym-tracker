@@ -248,6 +248,11 @@ router.delete('/:id', protect, async (req, res) => {
   }
 });
 
+// Keep-alive endpoint
+router.get('/keep-alive', (req, res) => {
+  res.json({ status: 'alive' });
+});
+
 // Fix all workout and exercise IDs
 router.post('/fix-ids', protect, async (req, res) => {
   try {
