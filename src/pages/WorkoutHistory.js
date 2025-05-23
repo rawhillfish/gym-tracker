@@ -49,6 +49,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import SearchIcon from '@mui/icons-material/Search';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -74,6 +76,8 @@ import "../styles/datepicker.css";
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -82,6 +86,9 @@ import {
   ResponsiveContainer,
   ReferenceDot
 } from 'recharts';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import PersonIcon from '@mui/icons-material/Person';
 
 const EditWorkoutForm = ({ workout, onSave, onCancel }) => {
   const [formState, setFormState] = useState({
@@ -100,7 +107,9 @@ const EditWorkoutForm = ({ workout, onSave, onCancel }) => {
   useEffect(() => {
     const fetchExercises = async () => {
       try {
+        console.log('Fetching exercises...');
         const exercises = await apiService.getExercises();
+        console.log('Fetched exercises:', exercises);
         setAvailableExercises(exercises);
       } catch (error) {
         console.error('Error fetching exercises:', error);
@@ -467,9 +476,25 @@ const WorkoutHistory = () => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-  const [selectedExercise, setSelectedExercise] = useState('all');
+  // Removed selectedExercise state and replaced with filteredUsers state for multi-user filtering
+  const [filteredUsers, setFilteredUsers] = useState(currentUser ? [currentUser.id] : []);
   const [chartMetric, setChartMetric] = useState('volume'); // 'volume' or 'maxWeight'
+
+  // State for user selection in charts
+  const [weeklyChartUsers, setWeeklyChartUsers] = useState(currentUser ? [currentUser.id] : []);
+  const [yearlyChartUsers, setYearlyChartUsers] = useState(currentUser ? [currentUser.id] : []);
+  
+  // Temporary state for user selection in modals
+  const [tempWeeklySelectedUsers, setTempWeeklySelectedUsers] = useState(currentUser ? [currentUser.id] : []);
+  const [tempYearlySelectedUsers, setTempYearlySelectedUsers] = useState(currentUser ? [currentUser.id] : []);
+  
+  // Modal visibility state
+  const [weeklyUserSelectionModalOpen, setWeeklyUserSelectionModalOpen] = useState(false);
+  const [yearlyUserSelectionModalOpen, setYearlyUserSelectionModalOpen] = useState(false);
+
   const [workoutHistory, setWorkoutHistory] = useState([]);
+  // Separate state for chart data that won't be affected by filters
+  const [chartWorkoutData, setChartWorkoutData] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [showRetiredUsers, setShowRetiredUsers] = useState(false);
@@ -587,6 +612,7 @@ const WorkoutHistory = () => {
       console.log("User IDs found in workouts:", [...workoutUserIds]);
       
       setWorkoutHistory(fetchedWorkouts);
+      setChartWorkoutData(fetchedWorkouts);
     } catch (error) {
       console.error("Error fetching workouts:", error);
     } finally {
@@ -596,7 +622,9 @@ const WorkoutHistory = () => {
 
   const fetchUsers = async () => {
     try {
+      console.log('Fetching users from API...');
       const response = await apiService.getUsers();
+      console.log('API response:', response);
       
       // Handle different response formats
       let fetchedUsers = [];
@@ -607,7 +635,10 @@ const WorkoutHistory = () => {
       }
       
       console.log("Raw fetched users:", fetchedUsers);
+      console.log("Current user before setting users:", currentUser);
       setUsers(fetchedUsers);
+      console.log("Weekly chart users before update:", weeklyChartUsers);
+      console.log("Yearly chart users before update:", yearlyChartUsers);
       
       // Initialize selectedUsers with all active user IDs
       if (fetchedUsers.length > 0 && selectedUsers.length === 0) {
@@ -740,10 +771,18 @@ const WorkoutHistory = () => {
     if (!workoutHistory.length) return [];
     
     return workoutHistory.filter(workout => {
-      // Filter by user
+      // Filter by user selection (for calendar)
       if (selectedUsers.length > 0) {
-        const workoutUserId = workout.user?._id || workout.userId;
-        if (!workoutUserId || !selectedUsers.includes(workoutUserId)) {
+        const workoutUserId = workout.userId || (workout.user && workout.user._id);
+        if (!selectedUsers.includes(workoutUserId)) {
+          return false;
+        }
+      }
+      
+      // Filter by the new user filter dropdown
+      if (filteredUsers.length > 0) {
+        const workoutUserId = workout.userId || (workout.user && workout.user._id);
+        if (!filteredUsers.includes(workoutUserId)) {
           return false;
         }
       }
@@ -761,112 +800,421 @@ const WorkoutHistory = () => {
         }
       }
       
-      // Filter by exercise
-      if (selectedExercise !== 'all') {
-        const hasExercise = workout.exercises.some(exercise => 
-          exercise.name === selectedExercise
-        );
-        if (!hasExercise) {
-          return false;
-        }
-      }
-      
-      return true;
+      return true; // Include this workout in the filtered results
     });
-  }, [workoutHistory, selectedUsers, startDate, endDate, selectedDate, selectedExercise]);
-
-  // Memoize chart data to avoid recalculating on every render
+  }, [workoutHistory, selectedUsers, startDate, endDate, selectedDate, filteredUsers]);
+  
+  // Process workout data for chart visualization
   const chartData = useMemo(() => {
-    if (!filteredWorkouts.length) return [];
-    
-    const dataMap = new Map();
+    const workoutsByDate = {};
     
     filteredWorkouts.forEach(workout => {
-      const date = format(new Date(workout.startTime), 'yyyy-MM-dd');
-      
-      if (!dataMap.has(date)) {
-        dataMap.set(date, {
-          date,
-          users: {}
-        });
-      }
-      
-      const dataPoint = dataMap.get(date);
-      const userId = workout.user?._id || workout.userId;
-      
-      if (userId) {
-        if (!dataPoint.users[userId]) {
-          dataPoint.users[userId] = {
-            userId,
-            value: 0,
-            detailedBreakdown: []
+      try {
+        if (!workout.startTime) return;
+        
+        const workoutDate = parseISO(workout.startTime);
+        const date = format(workoutDate, 'yyyy-MM-dd');
+        
+        if (!workoutsByDate[date]) {
+          workoutsByDate[date] = {
+            date,
+            users: {}
           };
         }
         
-        let value = 0;
-        const detailedBreakdown = [];
+        // Get the user ID from either userId or user._id
+        const userId = workout.userId || (workout.user && workout.user._id);
         
-        if (selectedExercise !== 'all') {
-          const exercise = workout.exercises.find(ex => ex.name === selectedExercise);
-          if (exercise) {
-            if (chartMetric === 'volume') {
-              value = exercise.sets.reduce((total, set) => 
-                total + (set.completed ? set.weight * set.reps : 0), 0
-              );
-              
-              exercise.sets.filter(set => set.completed).forEach((set, setIndex) => {
-                detailedBreakdown.push({
-                  workoutName: workout.templateName,
-                  exerciseName: exercise.name,
-                  setNumber: setIndex + 1,
-                  weight: set.weight,
-                  reps: set.reps,
-                  volume: set.weight * set.reps
-                });
-              });
-            } else { // maxWeight
-              value = Math.max(...exercise.sets
-                .filter(set => set.completed)
-                .map(set => set.weight), 0
-              );
-            }
+        if (userId) {
+          if (!workoutsByDate[date].users[userId]) {
+            workoutsByDate[date].users[userId] = {
+              userId,
+              workouts: []
+            };
           }
-        } else {
-          if (chartMetric === 'volume') {
-            value = calculateTotalVolume(workout.exercises);
-            
-            workout.exercises.forEach(exercise => {
-              exercise.sets.filter(set => set.completed).forEach((set, setIndex) => {
-                detailedBreakdown.push({
-                  workoutName: workout.templateName,
-                  exerciseName: exercise.name,
-                  setNumber: setIndex + 1,
-                  weight: set.weight,
-                  reps: set.reps,
-                  volume: set.weight * set.reps
-                });
-              });
-            });
-          } else { // maxWeight
-            value = Math.max(
-              ...workout.exercises.flatMap(exercise => 
-                exercise.sets
-                  .filter(set => set.completed)
-                  .map(set => set.weight)
-              ),
-              0
-            );
+          
+          workoutsByDate[date].users[userId].workouts.push(workout);
+        }
+    } catch (error) {
+      console.error("Error processing workout for chart:", error, workout);
+    }
+  });
+  
+  // Convert to array and sort by date
+  const chartData = Object.values(workoutsByDate).sort((a, b) => {
+    return new Date(a.date) - new Date(b.date);
+  });
+  
+  // Calculate the metric value for each user on each date
+  chartData.forEach(dateEntry => {
+    Object.entries(dateEntry.users).forEach(([userId, userData]) => {
+      const workouts = userData.workouts;
+      
+      // Calculate total volume or max weight across all exercises
+      if (chartMetric === 'volume') {
+        const totalVolume = workouts.reduce((total, workout) => {
+          return total + calculateTotalVolume(workout.exercises);
+        }, 0);
+        dateEntry.users[userId].value = totalVolume;
+      } else if (chartMetric === 'maxWeight') {
+        const maxWeights = workouts.flatMap(workout => {
+          return workout.exercises.map(exercise => {
+            return Math.max(...exercise.sets.map(set => Number(set.weight) || 0));
+          });
+        });
+        dateEntry.users[userId].value = Math.max(...maxWeights, 0);
+      }
+    });
+  });
+  
+  return chartData;
+  }, [filteredWorkouts, chartMetric]);
+
+  // Update chart users when current user changes
+  useEffect(() => {
+    if (currentUser && currentUser.id) {
+      // Only update if the arrays are empty (to avoid overriding user selections)
+      if (weeklyChartUsers.length === 0) {
+        setWeeklyChartUsers([currentUser.id]);
+      }
+      if (yearlyChartUsers.length === 0) {
+        setYearlyChartUsers([currentUser.id]);
+      }
+      
+      // Log for debugging
+      console.log('Current user set for charts:', currentUser.name, currentUser.id);
+    }
+  }, [currentUser]);
+
+  // Ensure current user is always selected in charts
+  useEffect(() => {
+    console.log('Current user effect running');
+    console.log('Current user:', currentUser);
+    console.log('Users array:', users);
+    
+    if (currentUser && currentUser.id && users.length > 0) {
+      // Find the current user in the users array
+      const userExists = users.some(u => u._id === currentUser.id || u.id === currentUser.id);
+      console.log('Current user exists in users array:', userExists);
+      
+      if (userExists) {
+        // Force the current user to be selected in both charts
+        console.log('Setting chart users to current user:', currentUser.id);
+        setWeeklyChartUsers([currentUser.id]);
+        setYearlyChartUsers([currentUser.id]);
+        
+        // Also update the temp selections for the modals
+        setTempWeeklySelectedUsers([currentUser.id]);
+        setTempYearlySelectedUsers([currentUser.id]);
+      }
+    }
+  }, [currentUser, users]);
+  
+  // Add state for chart period navigation
+  const [chartYear, setChartYear] = useState(new Date().getFullYear());
+  const [chartPeriod, setChartPeriod] = useState(Math.floor(new Date().getMonth() / 2) + 1); // 1-6 for each 2-month period
+  
+  // Add state for yearly chart
+  const [yearlyChartYear, setYearlyChartYear] = useState(new Date().getFullYear());
+
+  // Utility function to get all workouts for charts, independent of filters
+  const getWorkoutsForCharts = useCallback(() => {
+    return workoutHistory;
+  }, [workoutHistory]);
+
+  // Generate workout data by week for 2-month periods with multiple users
+  // Note: This chart uses workoutHistory in its dependency array instead of filteredWorkouts
+  // to ensure it's not affected by quick filters or date selectors
+  const weeklyWorkoutData = useMemo(() => {
+    console.log('Calculating weekly workout data with users:', weeklyChartUsers);
+    // Determine start and end months based on the selected period (2-month periods)
+    const startMonth = (chartPeriod - 1) * 2; // 0, 2, 4, 6, 8, 10
+    const endMonth = startMonth + 1;          // 1, 3, 5, 7, 9, 11
+    
+    // Calculate start and end dates for the period
+    const periodStartDate = new Date(chartYear, startMonth, 1);
+    const periodEndDate = new Date(chartYear, endMonth + 1, 0); // Last day of end month
+    
+    // Get all weeks in the period
+    const weeks = [];
+    let currentDate = new Date(periodStartDate);
+    
+    // Adjust to the start of the week (Monday)
+    const dayOfWeek = currentDate.getDay();
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Adjust to make Monday the first day
+    currentDate.setDate(currentDate.getDate() - daysFromMonday);
+    currentDate.setHours(0, 0, 0, 0);
+    
+    // Generate all weeks in the period
+    while (currentDate <= periodEndDate) {
+      const weekStart = new Date(currentDate);
+      const weekKey = format(weekStart, 'yyyy-MM-dd');
+      
+      // Create week label based on the month and day
+      const weekLabel = format(weekStart, 'MMM d');
+      
+      const weekData = {
+        week: weekKey,
+        label: weekLabel,
+        startDate: new Date(weekStart),
+        endDate: new Date(new Date(weekStart).setDate(weekStart.getDate() + 6))
+      };
+      
+      // Initialize counts for each selected user
+      // Always show individual users, never show a total
+      if (weeklyChartUsers.length === 0 && currentUser) {
+        // If no users explicitly selected, default to current user
+        weekData[currentUser.id] = 0;
+      } else {
+        // Add count for each selected user
+        weeklyChartUsers.forEach(userId => {
+          const user = users.find(u => u._id === userId);
+          if (user) {
+            weekData[userId] = 0;
+          }
+        });
+      }
+      
+      weeks.push(weekData);
+      
+      // Move to next week
+      currentDate.setDate(currentDate.getDate() + 7);
+    }
+    
+    // Process each workout
+    filteredWorkouts.forEach(workout => {
+      if (!workout.startTime) return;
+      
+      try {
+        // Parse the workout date
+        const workoutDate = parseISO(workout.startTime);
+        const workoutYear = workoutDate.getFullYear();
+        const workoutMonth = workoutDate.getMonth();
+        const workoutUserId = workout.userId || (workout.user && workout.user._id);
+        
+        // Skip if not in the selected year or period
+        if (workoutYear !== chartYear) return;
+        if (workoutMonth < startMonth || workoutMonth > endMonth) return;
+        
+        // Find the week this workout belongs to
+        const matchingWeek = weeks.find(week => {
+          return isWithinInterval(workoutDate, {
+            start: week.startDate,
+            end: week.endDate
+          });
+        });
+        
+        if (matchingWeek) {
+          if (weeklyChartUsers.length === 0 && currentUser && workoutUserId === currentUser.id) {
+            // If no users explicitly selected, count only current user's workouts
+            matchingWeek[currentUser.id] = (matchingWeek[currentUser.id] || 0) + 1;
+          } else if (weeklyChartUsers.includes(workoutUserId)) {
+            // If this workout belongs to a selected user, increment their count
+            matchingWeek[workoutUserId] = (matchingWeek[workoutUserId] || 0) + 1;
           }
         }
-        
-        dataPoint.users[userId].value += value;
-        dataPoint.users[userId].detailedBreakdown.push(...detailedBreakdown);
+      } catch (error) {
+        console.error("Error processing workout for weekly chart:", error, workout);
       }
     });
     
-    return Array.from(dataMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [filteredWorkouts, selectedExercise, chartMetric]);
+    return weeks;
+  }, [workoutHistory, weeklyChartUsers, users, chartYear, chartPeriod]);
+  
+  // Open weekly user selection modal
+  const handleOpenWeeklyUserSelectionModal = () => {
+    setTempWeeklySelectedUsers([...weeklyChartUsers]);
+    setWeeklyUserSelectionModalOpen(true);
+  };
+  
+  // Close weekly user selection modal
+  const handleCloseWeeklyUserSelectionModal = () => {
+    setWeeklyUserSelectionModalOpen(false);
+  };
+  
+  // Apply weekly user selection changes
+  const handleApplyWeeklyUserSelection = () => {
+    setWeeklyChartUsers([...tempWeeklySelectedUsers]);
+    setWeeklyUserSelectionModalOpen(false);
+  };
 
+  // Open yearly user selection modal
+  const handleOpenYearlyUserSelectionModal = () => {
+    setTempYearlySelectedUsers([...yearlyChartUsers]);
+    setYearlyUserSelectionModalOpen(true);
+  };
+  
+  // Close yearly user selection modal
+  const handleCloseYearlyUserSelectionModal = () => {
+    setYearlyUserSelectionModalOpen(false);
+  };
+  
+  const handleApplyYearlyUserSelection = () => {
+    setYearlyChartUsers([...tempYearlySelectedUsers]);
+    setYearlyUserSelectionModalOpen(false);
+  };
+  
+  // Toggle weekly user selection in modal
+  const handleToggleWeeklyUserSelection = (userId) => {
+    setTempWeeklySelectedUsers(prev => {
+      if (prev.includes(userId)) {
+        return prev.filter(id => id !== userId);
+      } else {
+        return [...prev, userId];
+      }
+    });
+  };
+  
+  // Clear all weekly user selections
+  const handleClearWeeklyUserSelection = () => {
+    setTempWeeklySelectedUsers([]);
+  };
+
+  // Toggle yearly user selection in modal
+  const handleToggleYearlyUserSelection = (userId) => {
+    setTempYearlySelectedUsers(prev => {
+      if (prev.includes(userId)) {
+        return prev.filter(id => id !== userId);
+      } else {
+        return [...prev, userId];
+      }
+    });
+  };
+  
+  // Clear all yearly user selections
+  const handleClearYearlyUserSelection = () => {
+    setTempYearlySelectedUsers([]);
+  };
+  
+  // Navigate to previous period
+  const handlePreviousPeriod = () => {
+    if (chartPeriod > 1) {
+      // Move to previous 2-month period in the same year
+      setChartPeriod(chartPeriod - 1);
+    } else {
+      // Move to last period of previous year
+      setChartPeriod(6); // Nov-Dec
+      setChartYear(chartYear - 1);
+    }
+  };
+  
+  // Navigate to next period
+  const handleNextPeriod = () => {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
+    const currentPeriod = Math.floor(currentMonth / 2) + 1;
+    
+    // Don't allow navigation beyond current period
+    if (chartYear === currentYear && chartPeriod >= currentPeriod) {
+      return;
+    }
+    
+    if (chartPeriod < 6) {
+      // Move to next 2-month period in the same year
+      setChartPeriod(chartPeriod + 1);
+    } else {
+      // Move to first period of next year
+      setChartPeriod(1); // Jan-Feb
+      setChartYear(chartYear + 1);
+    }
+  };
+  
+  // Get period label
+  const getPeriodLabel = () => {
+    const monthPairs = [
+      'Jan-Feb', 'Mar-Apr', 'May-Jun',
+      'Jul-Aug', 'Sep-Oct', 'Nov-Dec'
+    ];
+    return `${monthPairs[chartPeriod - 1]} ${chartYear}`;
+  };
+  
+  // Generate yearly workout data with multiple users
+  // Note: This chart uses workoutHistory in its dependency array instead of filteredWorkouts
+  // to ensure it's not affected by quick filters or date selectors
+  const yearlyWorkoutData = useMemo(() => {
+    console.log('Calculating yearly workout data with users:', yearlyChartUsers);
+    // Initialize all months with zero counts
+    const months = [];
+    for (let month = 0; month < 12; month++) {
+      const monthDate = new Date(yearlyChartYear, month, 1);
+      const monthKey = format(monthDate, 'yyyy-MM');
+      
+      const monthData = {
+        month: monthKey,
+        label: format(monthDate, 'MMM'),
+        year: yearlyChartYear
+      };
+      
+      // Initialize counts for each selected user
+      // Always show individual users, never show a total
+      if (yearlyChartUsers.length === 0 && currentUser) {
+        // If no users explicitly selected, default to current user
+        monthData[currentUser.id] = 0;
+      } else {
+        // Add count for each selected user
+        yearlyChartUsers.forEach(userId => {
+          const user = users.find(u => u._id === userId);
+          if (user) {
+            monthData[userId] = 0;
+          }
+        });
+      }
+      
+      months.push(monthData);
+    }
+    
+    // Process each workout
+    filteredWorkouts.forEach(workout => {
+      if (!workout.startTime) return;
+      
+      try {
+        // Parse the workout date
+        const workoutDate = parseISO(workout.startTime);
+        const workoutYear = workoutDate.getFullYear();
+        const workoutUserId = workout.userId || (workout.user && workout.user._id);
+        
+        // Skip if not in the selected year
+        if (workoutYear !== yearlyChartYear) return;
+        
+        // Format as YYYY-MM for the month
+        const monthKey = format(workoutDate, 'yyyy-MM');
+        
+        // Find the month data
+        const monthData = months.find(m => m.month === monthKey);
+        
+        if (monthData) {
+          if (yearlyChartUsers.length === 0 && currentUser && workoutUserId === currentUser.id) {
+            // If no users explicitly selected, count only current user's workouts
+            monthData[currentUser.id] = (monthData[currentUser.id] || 0) + 1;
+          } else if (yearlyChartUsers.includes(workoutUserId)) {
+            // If this workout belongs to a selected user, increment their count
+            monthData[workoutUserId] = (monthData[workoutUserId] || 0) + 1;
+          }
+        }
+      } catch (error) {
+        console.error("Error processing workout for yearly chart:", error, workout);
+      }
+    });
+    
+    // Sort by month
+    return months.sort((a, b) => new Date(a.month) - new Date(b.month));
+  }, [workoutHistory, yearlyChartUsers, users, yearlyChartYear]);
+  
+  // Navigate to previous year
+  const handlePreviousYear = () => {
+    setYearlyChartYear(yearlyChartYear - 1);
+  };
+  
+  // Navigate to next year
+  const handleNextYear = () => {
+    const currentYear = new Date().getFullYear();
+    
+    // Don't allow navigation beyond current year
+    if (yearlyChartYear < currentYear) {
+      setYearlyChartYear(yearlyChartYear + 1);
+    }
+  };
+  
   // Memoize workout stats to avoid recalculating on every render
   const computedWorkoutStats = useMemo(() => {
     if (!filteredWorkouts.length) {
@@ -1214,7 +1562,177 @@ const WorkoutHistory = () => {
         </Button>
       </Box>
 
-      {/* Calendar View - Moved to top and made larger */}
+      {/* Weekly Workout Count Bar Graph */}
+      {filteredWorkouts.length > 0 && (
+        <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">
+              Workouts by Week
+            </Typography>
+            <Button 
+              variant="outlined" 
+              size="small" 
+              onClick={handleOpenWeeklyUserSelectionModal}
+              startIcon={<PersonIcon />}
+            >
+              {weeklyChartUsers.length === 0 ? 'All Users' : 
+                weeklyChartUsers.length === 1 ? 
+                  users.find(u => u._id === weeklyChartUsers[0])?.name || 'User' : 
+                  `${weeklyChartUsers.length} Users`}
+            </Button>
+          </Box>
+          
+          {/* Period navigation controls */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 2 }}>
+            <IconButton onClick={handlePreviousPeriod}>
+              <NavigateBeforeIcon />
+            </IconButton>
+            <Typography variant="subtitle1" sx={{ mx: 2, fontWeight: 'bold' }}>
+              {getPeriodLabel()}
+            </Typography>
+            <IconButton 
+              onClick={handleNextPeriod}
+              disabled={chartYear === new Date().getFullYear() && 
+                ((chartPeriod === 1 && new Date().getMonth() < 6) || 
+                 (chartPeriod === 2))}
+            >
+              <NavigateNextIcon />
+            </IconButton>
+          </Box>
+          
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart
+              data={weeklyWorkoutData}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="label" />
+              <YAxis />
+              <Tooltip 
+                formatter={(value, name) => {
+                  // If it's a user ID, find the user name
+                  const user = users.find(u => u._id === name);
+                  if (user) {
+                    return [value, `${user.name} Workouts`];
+                  }
+                  // For total count
+                  if (name === 'total') {
+                    return [value, 'Total Workouts'];
+                  }
+                  return [value, name];
+                }}
+                labelFormatter={(label) => label}
+              />
+              <Legend />
+              {(weeklyChartUsers.length === 0 && currentUser) ? (
+                <Bar 
+                  dataKey={currentUser.id} 
+                  name={users.find(u => u._id === currentUser.id || u.id === currentUser.id)?.name || "Current User"}
+                  fill={users.find(u => u._id === currentUser.id || u.id === currentUser.id)?.color || "#8884d8"}
+                />
+              ) : (
+                weeklyChartUsers.map(userId => {
+                  const user = users.find(u => u._id === userId);
+                  return (
+                    <Bar 
+                      key={userId}
+                      dataKey={userId} 
+                      name={user?.name || 'User'}
+                      fill={user?.color || "#8884d8"}
+                    />
+                  );
+                })
+              )}
+            </BarChart>
+          </ResponsiveContainer>
+        </Paper>
+      )}
+      
+      {/* Yearly Workout Count Bar Graph */}
+      {filteredWorkouts.length > 0 && (
+        <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">
+              Workouts by Month
+            </Typography>
+            <Button 
+              variant="outlined" 
+              size="small" 
+              onClick={handleOpenYearlyUserSelectionModal}
+              startIcon={<PersonIcon />}
+            >
+              {yearlyChartUsers.length === 0 ? 'All Users' : 
+                yearlyChartUsers.length === 1 ? 
+                  users.find(u => u._id === yearlyChartUsers[0])?.name || 'User' : 
+                  `${yearlyChartUsers.length} Users`}
+            </Button>
+          </Box>
+          
+          {/* Year navigation controls */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 2 }}>
+            <IconButton onClick={handlePreviousYear}>
+              <NavigateBeforeIcon />
+            </IconButton>
+            <Typography variant="subtitle1" sx={{ mx: 2, fontWeight: 'bold' }}>
+              {yearlyChartYear}
+            </Typography>
+            <IconButton 
+              onClick={handleNextYear}
+              disabled={yearlyChartYear === new Date().getFullYear()}
+            >
+              <NavigateNextIcon />
+            </IconButton>
+          </Box>
+          
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart
+              data={yearlyWorkoutData}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="label" />
+              <YAxis />
+              <Tooltip 
+                formatter={(value, name) => {
+                  // If it's a user ID, find the user name
+                  const user = users.find(u => u._id === name);
+                  if (user) {
+                    return [value, `${user.name} Workouts`];
+                  }
+                  // For total count
+                  if (name === 'total') {
+                    return [value, 'Total Workouts'];
+                  }
+                  return [value, name];
+                }}
+                labelFormatter={(label) => label}
+              />
+              <Legend />
+              {(yearlyChartUsers.length === 0 && currentUser) ? (
+                <Bar 
+                  dataKey={currentUser.id} 
+                  name={users.find(u => u._id === currentUser.id || u.id === currentUser.id)?.name || "Current User"}
+                  fill={users.find(u => u._id === currentUser.id || u.id === currentUser.id)?.color || "#4CAF50"}
+                />
+              ) : (
+                yearlyChartUsers.map(userId => {
+                  const user = users.find(u => u._id === userId);
+                  return (
+                    <Bar 
+                      key={userId}
+                      dataKey={userId} 
+                      name={user?.name || 'User'}
+                      fill={user?.color || "#4CAF50"}
+                    />
+                  );
+                })
+              )}
+            </BarChart>
+          </ResponsiveContainer>
+        </Paper>
+      )}
+
+      {/* Calendar View */}
       <Paper elevation={3} sx={{ p: 2, mb: 4, borderRadius: '16px', overflow: 'hidden' }}>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 500, color: '#1976d2' }}>Calendar View</Typography>
@@ -1497,6 +2015,18 @@ const WorkoutHistory = () => {
             className="MuiInputBase-input MuiOutlinedInput-input"
             wrapperClassName="datePicker"
             dateFormat="MMMM d, yyyy"
+            customInput={
+              <input 
+                style={{ 
+                  color: 'white',
+                  backgroundColor: 'rgba(66, 66, 66, 0.9)',
+                  border: '1px solid rgba(255, 255, 255, 0.23)',
+                  borderRadius: '4px',
+                  padding: '16.5px 14px',
+                  width: '100%'
+                }} 
+              />
+            }
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
@@ -1507,19 +2037,47 @@ const WorkoutHistory = () => {
             className="MuiInputBase-input MuiOutlinedInput-input"
             wrapperClassName="datePicker"
             dateFormat="MMMM d, yyyy"
+            customInput={
+              <input 
+                style={{ 
+                  color: 'white',
+                  backgroundColor: 'rgba(66, 66, 66, 0.9)',
+                  border: '1px solid rgba(255, 255, 255, 0.23)',
+                  borderRadius: '4px',
+                  padding: '16.5px 14px',
+                  width: '100%'
+                }} 
+              />
+            }
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
           <FormControl fullWidth>
-            <InputLabel>Exercise</InputLabel>
+            <InputLabel>Users</InputLabel>
             <Select
-              value={selectedExercise}
-              onChange={(e) => setSelectedExercise(e.target.value)}
-              label="Exercise"
+              multiple
+              value={filteredUsers}
+              onChange={(e) => setFilteredUsers(e.target.value)}
+              label="Users"
+              renderValue={(selected) => {
+                if (selected.length === 0) {
+                  return 'All Users';
+                }
+                if (selected.length === 1) {
+                  const user = users.find(u => u._id === selected[0] || u.id === selected[0]);
+                  return user ? user.name : 'User';
+                }
+                return `${selected.length} Users`;
+              }}
             >
-              {['all', ...new Set(workoutHistory.flatMap(workout => workout.exercises.map(exercise => exercise.name)))].map(exercise => (
-                <MenuItem key={exercise} value={exercise}>
-                  {exercise === 'all' ? 'All Exercises' : exercise}
+              {users.map(user => (
+                <MenuItem key={user._id || user.id} value={user._id || user.id}>
+                  <Checkbox checked={filteredUsers.indexOf(user._id || user.id) > -1} />
+                  <ListItemText 
+                    primary={user.name} 
+                    secondary={user.email} 
+                    primaryTypographyProps={{ style: { color: user.color } }}
+                  />
                 </MenuItem>
               ))}
             </Select>
@@ -1527,315 +2085,7 @@ const WorkoutHistory = () => {
         </Grid>
       </Grid>
 
-      {filteredWorkouts.length > 0 && (
-        <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">
-              Progress Chart
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-              {/* Compare mode toggle */}
-              <ToggleButton
-                value="compare"
-                selected={compareMode}
-                onChange={handleToggleCompareMode}
-                size="small"
-                color="primary"
-                sx={{ 
-                  borderRadius: '4px', 
-                  height: '40px',
-                  border: compareMode ? '1px solid #1976d2' : '1px solid rgba(0, 0, 0, 0.23)',
-                  backgroundColor: compareMode ? 'rgba(25, 118, 210, 0.08)' : 'transparent'
-                }}
-              >
-                <CompareArrowsIcon fontSize="small" sx={{ mr: 0.5 }} />
-                Compare
-              </ToggleButton>
-              
-              {/* User selection */}
-              <FormControl sx={{ minWidth: 200 }}>
-                <InputLabel id="user-select-label" size="small">Users</InputLabel>
-                <Select
-                  labelId="user-select-label"
-                  id="user-select"
-                  multiple
-                  size="small"
-                  value={selectedUsers}
-                  onChange={handleUserSelectionChange}
-                  input={<OutlinedInput label="Users" />}
-                  renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {selected.map((userId) => {
-                        const user = users.find(u => u._id === userId);
-                        return user ? (
-                          <Chip 
-                            key={userId} 
-                            label={user.name + (user.retired ? ' (Retired)' : '')} 
-                            size="small" 
-                            style={{ 
-                              backgroundColor: user.color ? `${user.color}33` : '#cccccc33',
-                              borderColor: user.color || '#cccccc',
-                              borderWidth: 1,
-                              borderStyle: 'solid',
-                              opacity: user.retired ? 0.7 : 1
-                            }}
-                          />
-                        ) : null;
-                      })}
-                    </Box>
-                  )}
-                >
-                  {users
-                    .map((user) => (
-                      // Check if user exists and has an _id before rendering
-                      user && user._id ? (
-                        <MenuItem 
-                          key={user._id} 
-                          value={user._id}
-                          style={{ 
-                            display: (!showRetiredUsers && user.retired) ? 'none' : 'flex',
-                            opacity: user.retired ? 0.7 : 1
-                          }}
-                        >
-                          <Checkbox checked={selectedUsers.indexOf(user._id) > -1} />
-                          <ListItemText 
-                            primary={`${user.name || 'Unknown User'}${user.retired ? ' (Retired)' : ''}`}
-                            primaryTypographyProps={{
-                              style: { 
-                                color: user.color || '#cccccc',
-                                opacity: user.retired ? 0.7 : 1
-                              }
-                            }}
-                          />
-                        </MenuItem>
-                      ) : null
-                    ))}
-                </Select>
-              </FormControl>
-              
-              {/* Metric selection */}
-              <FormControl sx={{ minWidth: 120 }}>
-                <InputLabel id="metric-select-label" size="small">Metric</InputLabel>
-                <Select
-                  labelId="metric-select-label"
-                  id="metric-select"
-                  size="small"
-                  value={chartMetric}
-                  onChange={(e) => setChartMetric(e.target.value)}
-                  label="Metric"
-                >
-                  <MenuItem value="volume">Total Volume</MenuItem>
-                  <MenuItem value="maxWeight">Max Weight</MenuItem>
-                </Select>
-              </FormControl>
-              
-              {/* Show retired users toggle */}
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={showRetiredUsers}
-                    onChange={(e) => setShowRetiredUsers(e.target.checked)}
-                    size="small"
-                  />
-                }
-                label="Show Retired Users"
-              />
-            </Box>
-          </Box>
-          
-          {/* Compare mode indicator */}
-          {compareMode && (
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              mb: 2, 
-              p: 1, 
-              backgroundColor: 'rgba(25, 118, 210, 0.08)',
-              borderRadius: '4px',
-              border: '1px solid rgba(25, 118, 210, 0.23)'
-            }}>
-              <Typography variant="body2" sx={{ flex: 1, color: 'primary.main' }}>
-                Compare Mode: {comparePoints.length === 0 
-                  ? 'Select first data point' 
-                  : comparePoints.length === 1 
-                    ? `First point selected (${comparePoints[0].date}). Select second point.` 
-                    : `Comparing ${comparePoints[0].date} with ${comparePoints[1].date}`}
-              </Typography>
-              <Button 
-                size="small" 
-                variant="outlined" 
-                color="primary" 
-                onClick={handleResetCompare}
-                startIcon={<CloseIcon />}
-              >
-                Reset
-              </Button>
-            </Box>
-          )}
-          
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart 
-              data={chartData} 
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              onClick={handleChartClick}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip content={<SimpleTooltip />} />
-              <Legend />
-              
-              {/* Render a line for each selected user */}
-              {users
-                .filter(user => (showRetiredUsers || !user.retired) && selectedUsers.includes(user._id))
-                .map((user, index) => (
-                  <Line
-                    key={user._id}
-                    type="monotone"
-                    dataKey={`users.${user._id}.value`}
-                    name={user && user.name ? user.name : 'Unknown User'}
-                    stroke={user.color || `#${Math.floor(Math.random()*16777215).toString(16)}`}
-                    strokeWidth={2}
-                    dot={{ r: 5, style: { cursor: 'pointer' } }}
-                    activeDot={{ r: 8, style: { cursor: 'pointer' } }}
-                    connectNulls={true}
-                  />
-                ))}
-                
-              {/* Highlight selected compare points */}
-              {comparePoints.map((point, index) => (
-                <ReferenceDot
-                  key={`ref-dot-${index}`}
-                  x={point.date}
-                  y={Object.values(point.users).find(u => selectedUsers.includes(u.userId))?.value || 0}
-                  r={10}
-                  fill="rgba(255, 0, 0, 0.3)"
-                  stroke="red"
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-          
-          {/* Dialog for detailed tooltip */}
-          <Dialog
-            open={tooltipDialogOpen}
-            onClose={() => {
-              console.log('Closing dialog');
-              setTooltipDialogOpen(false);
-            }}
-            maxWidth="md"
-            fullWidth
-          >
-            <DialogTitle>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6">
-                  {tooltipData?.label || 'Workout Details'}
-                </Typography>
-                <Button 
-                  onClick={() => setTooltipDialogOpen(false)} 
-                  size="small"
-                >
-                  Close
-                </Button>
-              </Box>
-            </DialogTitle>
-            <DialogContent dividers>
-              {tooltipData && tooltipData.payload && (
-                <DetailedTooltipContent 
-                  payload={Object.entries(tooltipData.payload.users || {})
-                    .filter(([userId]) => selectedUsers.includes(userId))
-                    .map(([userId, userData]) => ({
-                      dataKey: `users.${userId}.value`,
-                      payload: tooltipData.payload
-                    }))}
-                  label={tooltipData.label}
-                />
-              )}
-            </DialogContent>
-          </Dialog>
-          
-          {/* Compare Dialog */}
-          <Dialog
-            open={compareDialogOpen}
-            onClose={() => setCompareDialogOpen(false)}
-            maxWidth="lg"
-            fullWidth
-            PaperProps={{
-              style: { 
-                maxWidth: '95vw',
-                maxHeight: '90vh'
-              }
-            }}
-          >
-            <DialogTitle>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6">
-                  Comparing Workouts
-                </Typography>
-                <Button 
-                  onClick={() => setCompareDialogOpen(false)}
-                  size="small"
-                >
-                  Close
-                </Button>
-              </Box>
-            </DialogTitle>
-            <DialogContent dividers>
-              {comparePoints.length === 2 ? (
-                <Grid container spacing={2}>
-                  {/* First point */}
-                  <Grid item xs={12} md={6}>
-                    <Paper elevation={1} sx={{ p: 2, height: '100%' }}>
-                      <Typography variant="h6" gutterBottom sx={{ borderBottom: '1px solid #eee', pb: 1 }}>
-                        {comparePoints[0].date}
-                      </Typography>
-                      <DetailedTooltipContent 
-                        payload={Object.entries(comparePoints[0].users || {})
-                          .filter(([userId]) => selectedUsers.includes(userId))
-                          .map(([userId, userData]) => ({
-                            dataKey: `users.${userId}.value`,
-                            payload: comparePoints[0]
-                          }))}
-                        label={comparePoints[0].date}
-                      />
-                    </Paper>
-                  </Grid>
-                  
-                  {/* Second point */}
-                  <Grid item xs={12} md={6}>
-                    <Paper elevation={1} sx={{ p: 2, height: '100%' }}>
-                      <Typography variant="h6" gutterBottom sx={{ borderBottom: '1px solid #eee', pb: 1 }}>
-                        {comparePoints[1].date}
-                      </Typography>
-                      <DetailedTooltipContent 
-                        payload={Object.entries(comparePoints[1].users || {})
-                          .filter(([userId]) => selectedUsers.includes(userId))
-                          .map(([userId, userData]) => ({
-                            dataKey: `users.${userId}.value`,
-                            payload: comparePoints[1]
-                          }))}
-                        label={comparePoints[1].date}
-                      />
-                    </Paper>
-                  </Grid>
-                </Grid>
-              ) : (
-                <Typography variant="body1" align="center" sx={{ py: 4 }}>
-                  Please select two data points to compare.
-                </Typography>
-              )}
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={handleResetCompare} color="primary">
-                Reset Selection
-              </Button>
-              <Button onClick={() => setCompareDialogOpen(false)} color="primary">
-                Close
-              </Button>
-            </DialogActions>
-          </Dialog>
-        </Paper>
-      )}
+      {/* Weekly Workout Count Bar Graph */}
 
       {filteredWorkouts.length > 0 && (
         <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
@@ -2115,6 +2365,95 @@ const WorkoutHistory = () => {
             variant="contained"
           >
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Weekly User Selection Modal */}
+      <Dialog open={weeklyUserSelectionModalOpen} onClose={handleCloseWeeklyUserSelectionModal}>
+        <DialogTitle>Select Users to Display</DialogTitle>
+        <DialogContent>
+          <List>
+            {users
+              .filter(user => showRetiredUsers || !user.retired)
+              .map((user) => (
+                <ListItem key={user._id} disablePadding>
+                  <ListItemButton onClick={() => handleToggleWeeklyUserSelection(user._id)}>
+                    <ListItemIcon>
+                      <Checkbox
+                        edge="start"
+                        checked={tempWeeklySelectedUsers.includes(user._id)}
+                        tabIndex={-1}
+                        disableRipple
+                      />
+                    </ListItemIcon>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box 
+                        sx={{ 
+                          width: 12, 
+                          height: 12, 
+                          borderRadius: '50%', 
+                          backgroundColor: user.color || '#ccc',
+                          mr: 1 
+                        }} 
+                      />
+                      <ListItemText primary={user.name} />
+                    </Box>
+                  </ListItemButton>
+                </ListItem>
+              ))
+            }
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseWeeklyUserSelectionModal}>Cancel</Button>
+          <Button onClick={handleClearWeeklyUserSelection}>Clear All</Button>
+          <Button onClick={handleApplyWeeklyUserSelection} variant="contained" color="primary">
+            Apply
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {/* Yearly User Selection Modal */}
+      <Dialog open={yearlyUserSelectionModalOpen} onClose={handleCloseYearlyUserSelectionModal}>
+        <DialogTitle>Select Users to Display</DialogTitle>
+        <DialogContent>
+          <List>
+            {users
+              .filter(user => showRetiredUsers || !user.retired)
+              .map((user) => (
+                <ListItem key={user._id} disablePadding>
+                  <ListItemButton onClick={() => handleToggleYearlyUserSelection(user._id)}>
+                    <ListItemIcon>
+                      <Checkbox
+                        edge="start"
+                        checked={tempYearlySelectedUsers.includes(user._id)}
+                        tabIndex={-1}
+                        disableRipple
+                      />
+                    </ListItemIcon>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box 
+                        sx={{ 
+                          width: 12, 
+                          height: 12, 
+                          borderRadius: '50%', 
+                          backgroundColor: user.color || '#ccc',
+                          mr: 1 
+                        }} 
+                      />
+                      <ListItemText primary={user.name} />
+                    </Box>
+                  </ListItemButton>
+                </ListItem>
+              ))
+            }
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseYearlyUserSelectionModal}>Cancel</Button>
+          <Button onClick={handleClearYearlyUserSelection}>Clear All</Button>
+          <Button onClick={handleApplyYearlyUserSelection} variant="contained" color="primary">
+            Apply
           </Button>
         </DialogActions>
       </Dialog>
