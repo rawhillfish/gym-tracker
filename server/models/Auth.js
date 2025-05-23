@@ -26,6 +26,10 @@ const authSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  passwordResetRequired: {
+    type: Boolean,
+    default: false
+  },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   createdAt: {

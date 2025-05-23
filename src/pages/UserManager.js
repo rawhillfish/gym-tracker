@@ -26,7 +26,8 @@ import {
   Edit as EditIcon, 
   Delete as DeleteIcon,
   Restore as RestoreIcon,
-  DeleteForever as DeleteForeverIcon
+  DeleteForever as DeleteForeverIcon,
+  Password as PasswordIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import apiService from '../services/api';
@@ -78,6 +79,7 @@ const UserManager = ({ isSubTab }) => {
   const [currentEditUser, setCurrentEditUser] = useState({ name: '', color: '#1976d2', retired: false });
   const [isEditing, setIsEditing] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [resetPasswordDialog, setResetPasswordDialog] = useState({ open: false, userId: null, userName: '' });
 
   // Fetch users from the API
   const fetchUsers = useCallback(async () => {
@@ -146,6 +148,7 @@ const UserManager = ({ isSubTab }) => {
     setCurrentEditUser({
       _id: user._id,
       name: user.name,
+      email: user.email || '',
       color: user.color || '#1976d2',
       retired: user.retired || false,
       isAdmin: user.isAdmin || false
@@ -175,10 +178,21 @@ const UserManager = ({ isSubTab }) => {
       return;
     }
 
+    // Validate email format if provided
+    if (currentEditUser.email && !/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(currentEditUser.email)) {
+      setSnackbar({
+        open: true,
+        message: 'Please enter a valid email address',
+        severity: 'error'
+      });
+      return;
+    }
+
     try {
       // Update existing user
       await apiService.updateUser(currentEditUser._id, {
         name: currentEditUser.name,
+        email: currentEditUser.email,
         color: currentEditUser.color,
         retired: currentEditUser.retired
       });
@@ -294,6 +308,44 @@ const UserManager = ({ isSubTab }) => {
     setSnackbar({ ...snackbar, open: false });
   };
 
+  // Open reset password confirmation dialog
+  const openResetPasswordDialog = (userId, userName) => {
+    setResetPasswordDialog({
+      open: true,
+      userId,
+      userName
+    });
+  };
+
+  // Close reset password confirmation dialog
+  const closeResetPasswordDialog = () => {
+    setResetPasswordDialog({
+      ...resetPasswordDialog,
+      open: false
+    });
+  };
+
+  // Handle reset password confirmation
+  const handleResetPassword = async () => {
+    try {
+      await apiService.resetUserPassword(resetPasswordDialog.userId);
+      closeResetPasswordDialog();
+      setSnackbar({
+        open: true,
+        message: `Password reset successfully for ${resetPasswordDialog.userName}`,
+        severity: 'success'
+      });
+    } catch (err) {
+      console.error('Error resetting password:', err);
+      closeResetPasswordDialog();
+      setSnackbar({
+        open: true,
+        message: `Failed to reset password: ${err.response?.data?.message || err.message}`,
+        severity: 'error'
+      });
+    }
+  };
+
   // Render the user list items with conditional edit buttons
   const renderUserListItem = (user) => (
     <ListItem key={user._id}>
@@ -301,7 +353,17 @@ const UserManager = ({ isSubTab }) => {
         <ColorPreview bgcolor={user.color} />
         <ListItemText 
           primary={user.name} 
-          secondary={user.isAdmin ? 'Admin' : 'User'}
+          secondary={
+            <>
+              <Typography component="span" variant="body2" color="text.primary">
+                {user.email || 'No email found'}
+              </Typography>
+              <br />
+              <Typography component="span" variant="body2" color="text.secondary">
+                {user.isAdmin ? 'Admin' : 'User'} (ID: {user._id})
+              </Typography>
+            </>
+          }
         />
         <Box>
           <IconButton
@@ -316,13 +378,24 @@ const UserManager = ({ isSubTab }) => {
             <EditIcon />
           </IconButton>
           {isAdmin() && (
-            <IconButton
-              edge="end"
-              aria-label="delete"
-              onClick={() => handleRetireUser(user._id)}
-            >
-              <DeleteIcon />
-            </IconButton>
+            <>
+              <IconButton
+                edge="end"
+                aria-label="reset password"
+                onClick={() => openResetPasswordDialog(user._id, user.name)}
+                sx={{ mr: 1 }}
+                title="Reset Password"
+              >
+                <PasswordIcon />
+              </IconButton>
+              <IconButton
+                edge="end"
+                aria-label="delete"
+                onClick={() => handleRetireUser(user._id)}
+              >
+                <DeleteIcon />
+              </IconButton>
+            </>
           )}
         </Box>
       </Box>
@@ -398,11 +471,30 @@ const UserManager = ({ isSubTab }) => {
                             <ColorPreview bgcolor={user.color} />
                             <ListItemText 
                               primary={user.name} 
-                              secondary={user.isDeleted ? 'Deleted' : 'Retired'}
+                              secondary={
+                                <>
+                                  <Typography component="span" variant="body2" color="text.primary">
+                                    {user.email || 'No email found'}
+                                  </Typography>
+                                  <br />
+                                  <Typography component="span" variant="body2" color="text.secondary">
+                                    {user.isDeleted ? 'Deleted' : 'Retired'} (ID: {user._id})
+                                  </Typography>
+                                </>
+                              }
                             />
                             <Box>
                               {isAdmin() && (
                                 <>
+                                  <IconButton
+                                    edge="end"
+                                    aria-label="reset password"
+                                    onClick={() => openResetPasswordDialog(user._id, user.name)}
+                                    sx={{ mr: 1 }}
+                                    title="Reset Password"
+                                  >
+                                    <PasswordIcon />
+                                  </IconButton>
                                   <IconButton
                                     edge="end"
                                     aria-label="restore"
@@ -451,6 +543,17 @@ const UserManager = ({ isSubTab }) => {
               onChange={(e) => setCurrentEditUser({ ...currentEditUser, name: e.target.value })}
             />
             
+            <TextField
+              margin="dense"
+              label="Email Address"
+              type="email"
+              fullWidth
+              variant="outlined"
+              value={currentEditUser.email || ''}
+              onChange={(e) => setCurrentEditUser({ ...currentEditUser, email: e.target.value })}
+              helperText="Email address is used for login"
+            />
+            
             <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
               User Color
             </Typography>
@@ -488,6 +591,30 @@ const UserManager = ({ isSubTab }) => {
           <Button onClick={handleCloseDialog}>Cancel</Button>
           <Button onClick={handleSubmit} variant="contained" color="primary">
             Update
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reset Password Confirmation Dialog */}
+      <Dialog
+        open={resetPasswordDialog.open}
+        onClose={closeResetPasswordDialog}
+        aria-labelledby="reset-password-dialog-title"
+      >
+        <DialogTitle id="reset-password-dialog-title">
+          Reset Password for {resetPasswordDialog.userName}
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            This will reset the user's password to 'password'. The user will need to change it on their next login.
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeResetPasswordDialog} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleResetPassword} color="primary" variant="contained">
+            Reset Password
           </Button>
         </DialogActions>
       </Dialog>

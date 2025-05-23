@@ -183,9 +183,14 @@ router.post('/login', async (req, res) => {
     const token = auth.getSignedJwtToken();
     console.log('Token generated successfully');
 
+    // Check if password reset is required
+    const passwordResetRequired = auth.passwordResetRequired || false;
+    console.log('Password reset required:', passwordResetRequired);
+
     res.status(200).json({
       success: true,
       token,
+      passwordResetRequired,
       user: {
         id: user._id,
         name: user.name,
@@ -215,14 +220,72 @@ router.get('/me', protect, async (req, res) => {
         name: req.user.name,
         color: req.user.color,
         email: req.auth.email,
-        isAdmin: req.user.isAdmin
+        isAdmin: req.user.isAdmin,
+        passwordResetRequired: req.auth.passwordResetRequired || false
       }
     });
   } catch (error) {
     console.error('Get current user error:', error);
     res.status(500).json({ 
       success: false, 
-      error: 'Server error while fetching user data' 
+      error: 'Server error while fetching user data'
+    });
+  }
+});
+
+// @route   PUT /api/auth/changepassword
+// @desc    Change user password and clear reset flag
+// @access  Private
+router.put('/changepassword', protect, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    // Validate input
+    if (!newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide a new password'
+      });
+    }
+    
+    // Find auth record and select password
+    const auth = await Auth.findById(req.auth._id).select('+password');
+    
+    // If password reset is required, we don't need to check the current password
+    // Otherwise, verify the current password
+    if (!auth.passwordResetRequired) {
+      if (!currentPassword) {
+        return res.status(400).json({
+          success: false,
+          error: 'Please provide your current password'
+        });
+      }
+      
+      const isMatch = await auth.matchPassword(currentPassword);
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          error: 'Current password is incorrect'
+        });
+      }
+    }
+    
+    // Set new password and clear reset flag
+    auth.password = newPassword;
+    auth.passwordResetRequired = false;
+    await auth.save();
+    
+    console.log('Password changed successfully for user:', req.user.id);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error during password change'
     });
   }
 });

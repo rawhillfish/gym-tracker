@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import apiService from '../services/api';
+import PasswordChangeDialog from '../components/PasswordChangeDialog';
 
 // Create the auth context
 const AuthContext = createContext();
@@ -13,6 +14,8 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [passwordResetRequired, setPasswordResetRequired] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
   // Set token in axios headers and localStorage
   const setAuthToken = (token) => {
@@ -53,6 +56,13 @@ export const AuthProvider = ({ children }) => {
       const response = await apiService.login({ email, password });
       setCurrentUser(response.user);
       setAuthToken(response.token);
+      
+      // Check if password reset is required
+      if (response.passwordResetRequired) {
+        setPasswordResetRequired(true);
+        setPasswordDialogOpen(true);
+      }
+      
       setLoading(false);
       return response;
     } catch (error) {
@@ -85,6 +95,31 @@ export const AuthProvider = ({ children }) => {
       throw new Error(errorMessage);
     }
   };
+  
+  // Change password (handles both normal changes and reset-required changes)
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      setError(null);
+      setLoading(true);
+      await apiService.changePassword({ currentPassword, newPassword });
+      setPasswordResetRequired(false);
+      setPasswordDialogOpen(false);
+      setLoading(false);
+      return true;
+    } catch (error) {
+      setLoading(false);
+      const errorMessage = error.data?.error || error.message || 'Failed to change password';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  };
+  
+  // Handle password dialog close
+  const handlePasswordDialogClose = (success) => {
+    if (success || !passwordResetRequired) {
+      setPasswordDialogOpen(false);
+    }
+  };
 
   // Check if user is logged in
   useEffect(() => {
@@ -101,6 +136,12 @@ export const AuthProvider = ({ children }) => {
               color: userData.data.color,
               isAdmin: userData.data.isAdmin
             });
+            
+            // Check if password reset is required
+            if (userData.data.passwordResetRequired) {
+              setPasswordResetRequired(true);
+              setPasswordDialogOpen(true);
+            }
           } else {
             setCurrentUser(null);
             setAuthToken(null);
@@ -133,11 +174,22 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     updatePassword,
+    changePassword,
     isAdmin,
-    isAuthenticated: !!currentUser
+    isAuthenticated: !!currentUser,
+    passwordResetRequired
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <PasswordChangeDialog 
+        open={passwordDialogOpen} 
+        onClose={handlePasswordDialogClose} 
+        isResetRequired={passwordResetRequired} 
+      />
+    </AuthContext.Provider>
+  );
 };
 
 export default AuthContext;

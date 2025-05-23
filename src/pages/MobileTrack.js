@@ -388,19 +388,25 @@ const MobileTrack = () => {
         userId: userId,
         user: userId,
         exercises: template.exercises.map(exercise => {
-          // Get the last used weights for this exercise by this user
-          const targetSetsCount = exercise.sets || 1;
-          const lastUsedWeights = getLastUsedWeights(previousWorkouts, exercise, targetSetsCount, template);
-          const hasPreFilledWeights = wereWeightsPrefilled(lastUsedWeights);
+          // Get the last used weights and reps for this exercise by this user
+          const templateSetsCount = exercise.sets || 1;
+          const { data: lastUsedData, actualSetsCount } = getLastUsedExerciseData(previousWorkouts, exercise, templateSetsCount, template);
+          
+          // Use the greater of template sets count or actual previous sets count
+          const finalSetsCount = Math.max(templateSetsCount, actualSetsCount);
+          
+          const hasPreFilledWeights = wereWeightsPrefilled(lastUsedData);
+          const hasPreFilledReps = wereRepsPrefilled(lastUsedData);
           
           return {
             name: exercise.name,
             category: exercise.category || '',
             exerciseId: exercise.exerciseId,
             weightPreFilled: hasPreFilledWeights,
-            sets: Array(targetSetsCount).fill().map((_, index) => ({ 
-              weight: lastUsedWeights[index] || '', 
-              reps: exercise.reps, 
+            repsPreFilled: hasPreFilledReps,
+            sets: Array(finalSetsCount).fill().map((_, index) => ({ 
+              weight: lastUsedData[index]?.weight || '', 
+              reps: lastUsedData[index]?.reps || exercise.reps || 8, 
               completed: false 
             }))
           };
@@ -410,10 +416,18 @@ const MobileTrack = () => {
       setActiveWorkouts(prev => [...prev, workout]);
       setSaving(false);
       
-      // Only show a notification if weights were pre-filled
+      // Show notification if weights or reps were pre-filled
       const hasPreFilledWeights = workout.exercises.some(exercise => exercise.weightPreFilled);
-      if (hasPreFilledWeights) {
+      const hasPreFilledReps = workout.exercises.some(exercise => exercise.repsPreFilled);
+      
+      if (hasPreFilledWeights && hasPreFilledReps) {
+        setSnackbarMessage('Weights and reps have been pre-filled based on your previous workouts');
+        setSnackbarOpen(true);
+      } else if (hasPreFilledWeights) {
         setSnackbarMessage('Weights have been pre-filled based on your previous workouts');
+        setSnackbarOpen(true);
+      } else if (hasPreFilledReps) {
+        setSnackbarMessage('Reps have been pre-filled based on your previous workouts');
         setSnackbarOpen(true);
       }
     } catch (error) {
@@ -426,9 +440,9 @@ const MobileTrack = () => {
     }
   };
 
-  // Get the last used weights for an exercise from previous workouts
-  const getLastUsedWeights = (previousWorkouts, exercise, targetSetsCount, template) => {
-    console.log('Getting last used weights for exercise:', exercise.name);
+  // Get the last used weights and reps for an exercise from previous workouts
+  const getLastUsedExerciseData = (previousWorkouts, exercise, templateSetsCount, template) => {
+    console.log('Getting last used weights and reps for exercise:', exercise.name);
     console.log('Exercise details:', {
       id: exercise._id,
       exerciseId: exercise.exerciseId,
@@ -437,8 +451,8 @@ const MobileTrack = () => {
     console.log('Previous workouts count:', previousWorkouts?.length || 0);
     
     if (!previousWorkouts || !Array.isArray(previousWorkouts) || previousWorkouts.length === 0) {
-      console.log('No previous workouts found, returning empty weights');
-      return Array(targetSetsCount).fill('');
+      console.log('No previous workouts found, returning empty data');
+      return { data: Array(templateSetsCount).fill({ weight: '', reps: '' }), actualSetsCount: 0 };
     }
     
     // Debug the first workout to see its structure
@@ -494,52 +508,9 @@ const MobileTrack = () => {
     console.log('Workouts with this exercise found:', workoutsWithExercise.length);
     
     if (workoutsWithExercise.length === 0) {
-      // If no workouts found with the same template and exercise, try matching just by exercise name
-      const workoutsWithExerciseByName = previousWorkouts.filter(workout => {
-        if (!workout.exercises || !Array.isArray(workout.exercises)) {
-          return false;
-        }
-        
-        return workout.exercises.some(ex => ex.name === exercise.name);
-      });
-      
-      console.log('Workouts with this exercise by name:', workoutsWithExerciseByName.length);
-      
-      if (workoutsWithExerciseByName.length === 0) {
-        console.log('No workouts found with this exercise, returning empty weights');
-        return Array(targetSetsCount).fill('');
-      }
-      
-      // Sort by date (most recent first)
-      workoutsWithExerciseByName.sort((a, b) => new Date(b.endTime) - new Date(a.endTime));
-      
-      // Get the most recent workout
-      const mostRecentWorkout = workoutsWithExerciseByName[0];
-      console.log('Most recent workout by name match:', mostRecentWorkout.templateName, 'from', mostRecentWorkout.endTime);
-      
-      // Find the exercise in that workout
-      const matchingExercise = mostRecentWorkout.exercises.find(ex => ex.name === exercise.name);
-      
-      if (!matchingExercise || !matchingExercise.sets || !Array.isArray(matchingExercise.sets)) {
-        console.log('No matching exercise found in the workout, returning empty weights');
-        return Array(targetSetsCount).fill('');
-      }
-      
-      // Get the weights from each set - include all sets regardless of completion status
-      const weights = matchingExercise.sets.map(set => {
-        console.log('Set:', set);
-        return set.weight || '';
-      });
-      
-      console.log('Found weights by name match:', weights);
-      
-      // If we need more sets than we have weights for, pad with empty strings
-      if (weights.length < targetSetsCount) {
-        return [...weights, ...Array(targetSetsCount - weights.length).fill('')];
-      }
-      
-      // If we have more weights than sets, truncate
-      return weights.slice(0, targetSetsCount);
+      // No workouts found with the same template and exercise
+      console.log('No workouts found with this exercise in the same template, returning empty data');
+      return { data: Array(templateSetsCount).fill({ weight: '', reps: '' }), actualSetsCount: 0 };
     }
     
     // Sort by date (most recent first)
@@ -559,39 +530,61 @@ const MobileTrack = () => {
     });
     
     if (!matchingExercise || !matchingExercise.sets || !Array.isArray(matchingExercise.sets)) {
-      console.log('No matching exercise found in the workout, returning empty weights');
-      return Array(targetSetsCount).fill('');
+      console.log('No matching exercise found in the workout, returning empty data');
+      return { data: Array(templateSetsCount).fill({ weight: '', reps: '' }), actualSetsCount: 0 };
     }
     
     console.log('Matching exercise found:', matchingExercise.name);
     console.log('Sets count:', matchingExercise.sets.length);
     
-    // Get the weights from each set - include all sets regardless of completion status
-    const weights = matchingExercise.sets.map(set => {
+    // Get the weights and reps from each set - include all sets regardless of completion status
+    const exerciseData = matchingExercise.sets.map(set => {
       console.log('Set:', set);
-      return set.weight || '';
+      return {
+        weight: set.weight || '',
+        reps: set.reps || ''
+      };
     });
     
-    console.log('Found weights:', weights);
+    console.log('Found exercise data:', exerciseData);
+    console.log(`Previous workout had ${exerciseData.length} sets, template has ${templateSetsCount} sets`);
     
-    // If we need more sets than we have weights for, pad with empty strings
-    if (weights.length < targetSetsCount) {
-      return [...weights, ...Array(targetSetsCount - weights.length).fill('')];
+    // Store the actual number of sets from the previous workout
+    const actualSetsCount = exerciseData.length;
+    
+    // If we need more sets than we have data for, pad with empty objects
+    if (exerciseData.length < templateSetsCount) {
+      return { 
+        data: [...exerciseData, ...Array(templateSetsCount - exerciseData.length).fill({ weight: '', reps: '' })],
+        actualSetsCount
+      };
     }
     
-    // If we have more weights than sets, truncate
-    return weights.slice(0, targetSetsCount);
+    // Return all sets from the previous workout (don't truncate)
+    return { data: exerciseData, actualSetsCount };
   };
 
   // Check if weights were prefilled
-  const wereWeightsPrefilled = (weights) => {
-    const result = weights.some(weight => {
+  const wereWeightsPrefilled = (exerciseData) => {
+    const result = exerciseData.some(data => {
       // Convert to number if it's a string
-      const numWeight = typeof weight === 'string' ? parseFloat(weight) : weight;
+      const numWeight = typeof data.weight === 'string' ? parseFloat(data.weight) : data.weight;
       // Check if it's a valid number and greater than zero
       return !isNaN(numWeight) && numWeight > 0;
     });
-    console.log('Were weights prefilled:', result, 'Weights:', weights);
+    console.log('Were weights prefilled:', result, 'Data:', exerciseData);
+    return result;
+  };
+
+  // Check if reps were prefilled
+  const wereRepsPrefilled = (exerciseData) => {
+    const result = exerciseData.some(data => {
+      // Convert to number if it's a string
+      const numReps = typeof data.reps === 'string' ? parseInt(data.reps) : data.reps;
+      // Check if it's a valid number and greater than zero
+      return !isNaN(numReps) && numReps > 0;
+    });
+    console.log('Were reps prefilled:', result, 'Data:', exerciseData);
     return result;
   };
 

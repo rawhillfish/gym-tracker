@@ -508,19 +508,43 @@ const apiService = {
   },
   
   async retireUser(id) {
-    return request(`/api/users/${id}/retire`, {
-      method: "PATCH",
+    // Use the existing soft delete endpoint instead of a separate retire endpoint
+    return request(`/api/users/${id}`, {
+      method: "DELETE",
       headers: this.getHeaders()
     });
   },
   
   async hardDeleteUser(id) {
-    return request(`/api/users/${id}`, {
+    // Use the permanent delete endpoint for hard deletion
+    return request(`/api/users/${id}/permanent`, {
       method: 'DELETE',
       headers: this.getHeaders()
     });
   },
   
+  async getUserEmail(id) {
+    return request(`/api/users/${id}/email`, {
+      method: 'GET',
+      headers: this.getHeaders()
+    });
+  },
+
+  async resetUserPassword(id) {
+    return request(`/api/users/${id}/reset-password`, {
+      method: 'POST',
+      headers: this.getHeaders()
+    });
+  },
+
+  async changePassword(data) {
+    return request('/api/auth/changepassword', {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
+    });
+  },
+
   async restoreUser(id) {
     return request(`/api/users/${id}/restore`, {
       method: 'PATCH',
