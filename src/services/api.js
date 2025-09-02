@@ -203,7 +203,7 @@ const apiService = {
   
   async updatePassword(data) {
     return request('/api/auth/update-password', {
-      method: "PATCH",
+      method: "PUT",
       headers: this.getHeaders(),
       body: JSON.stringify(data)
     });
@@ -236,7 +236,7 @@ const apiService = {
   
   async updateExercise(id, data) {
     return request(`/api/exercises/${id}`, {
-      method: "PATCH",
+      method: "PUT",
       headers: this.getHeaders(),
       body: JSON.stringify(data)
     });
@@ -344,7 +344,7 @@ const apiService = {
       console.log('Template data being sent:', templateData);
       
       return await request(`/api/workout-templates/${id}`, {
-        method: "PATCH",
+        method: "PUT",
         headers: this.getHeaders(),
         body: JSON.stringify(templateData)
       });
