@@ -29,7 +29,6 @@
     "react-datepicker": "^4.10.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.6.1",
-    "react-scripts": "5.0.1",
     "recharts": "^2.15.1",
     "resolve-url-loader": "^5.0.0",
     "serverless-http": "^3.2.0",
@@ -64,6 +63,7 @@
   },
   "devDependencies": {
     "gh-pages": "^6.3.0",
-    "netlify-cli": "^21.5.0"
+    "netlify-cli": "^23.4.3",
+    "react-scripts": "^5.0.1"
   }
 }
