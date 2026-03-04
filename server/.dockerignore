@@ -1,0 +1,17 @@
+# Exclude sensitive env files — all vars are injected via docker-compose environment:
+.env
+.env.*
+
+# Installed locally; Docker rebuilds inside the image
+node_modules/
+npm-debug.log*
+
+# Git metadata
+.git
+.gitignore
+
+# Logs
+*.log
+
+# OS artifacts
+.DS_Store
