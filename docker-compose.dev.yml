@@ -38,12 +38,10 @@ services:
     depends_on:
       gym-tracker-mongo-dev:
         condition: service_healthy
+    ports:
+      - "5001:5000"   # Caddy (host network mode) proxies gymapi-dev.home → localhost:5001
     networks:
       - homeserver
-    # Caddy proxies gymapi-dev.home → this container on the homeserver network.
-    # No host port needed; uncomment the line below only for direct debugging:
-    # ports:
-    #   - "5001:5000"
 
 volumes:
   gym-tracker-mongo-dev-data:
