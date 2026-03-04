@@ -1,0 +1,56 @@
+# Production environment — persistent MongoDB + backend
+# Usage (run from repo root on the server):
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml down
+#   docker compose -f docker-compose.prod.yml logs -f gym-tracker-backend-prod
+#
+# BEFORE STARTING:
+#   1. Replace JWT_SECRET with a strong random value:
+#      openssl rand -base64 32
+#   2. Ensure /mnt/storage/mongodb exists and is writable by docker
+#   3. Add MONGODB_ADMIN_USER / MONGODB_ADMIN_PASS if you want MongoDB auth
+
+services:
+  gym-tracker-mongo-prod:
+    image: mongo:7
+    container_name: gym-tracker-mongo-prod
+    restart: unless-stopped
+    volumes:
+      - /mnt/storage/mongodb:/data/db   # Persistent data on HDD
+    networks:
+      - homeserver
+    # No host port — production MongoDB should NOT be exposed directly
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  gym-tracker-backend-prod:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: gym-tracker-backend-prod
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGODB_URI=mongodb://gym-tracker-mongo-prod:27017/gym-tracker
+      # GitHub Pages origin — update if you move the frontend
+      - FRONTEND_URL=https://rawhillfish.github.io
+      # REQUIRED: replace with output of: openssl rand -base64 32
+      - JWT_SECRET=REPLACE_WITH_STRONG_SECRET
+      - JWT_EXPIRE=30d
+    depends_on:
+      gym-tracker-mongo-prod:
+        condition: service_healthy
+    networks:
+      - homeserver
+    # Caddy proxies gymapi.home → this container on the homeserver network.
+    # Cloudflare Tunnel proxies api.jnp-home.com → this container too.
+    # No host port needed unless debugging directly.
+
+networks:
+  homeserver:
+    external: true

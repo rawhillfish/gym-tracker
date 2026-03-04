@@ -1,0 +1,54 @@
+# Dev environment — separate MongoDB + backend
+# Usage (run from repo root on the server):
+#   docker compose -f docker-compose.dev.yml up -d --build
+#   docker compose -f docker-compose.dev.yml down
+#   docker compose -f docker-compose.dev.yml logs -f gym-tracker-backend-dev
+
+services:
+  gym-tracker-mongo-dev:
+    image: mongo:7
+    container_name: gym-tracker-mongo-dev
+    restart: unless-stopped
+    volumes:
+      - gym-tracker-mongo-dev-data:/data/db
+    ports:
+      - "27018:27017"   # Direct access on host port 27018 (e.g. MongoDB Compass)
+    networks:
+      - homeserver
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  gym-tracker-backend-dev:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: gym-tracker-backend-dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGODB_URI=mongodb://gym-tracker-mongo-dev:27017/gym-tracker-dev
+      - FRONTEND_URL=http://localhost:3000
+      - JWT_SECRET=dev-jwt-secret-change-this-to-any-random-string
+      - JWT_EXPIRE=30d
+    depends_on:
+      gym-tracker-mongo-dev:
+        condition: service_healthy
+    networks:
+      - homeserver
+    # Caddy proxies gymapi-dev.home → this container on the homeserver network.
+    # No host port needed; uncomment the line below only for direct debugging:
+    # ports:
+    #   - "5001:5000"
+
+volumes:
+  gym-tracker-mongo-dev-data:
+    # Named volume — dev data is disposable, just remove this volume to reset
+
+networks:
+  homeserver:
+    external: true
